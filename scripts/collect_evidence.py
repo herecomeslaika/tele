@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
-"""
-Evidence collection script for A2A_min_v1 extension goals.
-Runs all extension tests and exports structured logs to evidence/extension-goals/.
-"""
+"""A2A_min_v1 Evidence Collection Script — runs all tests and collects structured evidence."""
+
+from __future__ import annotations
 
 import json
 import os
@@ -17,7 +15,8 @@ EVIDENCE_DIR = os.path.join(PROJECT_ROOT, "evidence", "extension-goals")
 def run_tests(test_pattern: str, label: str) -> dict:
     """Run pytest for a specific test file and capture results."""
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", test_pattern, "-v", "--tb=short", "-o", "console_output_style=classic"],
+        [sys.executable, "-m", "pytest", test_pattern, "-v", "--tb=short",
+         "-o", "console_output_style=classic"],
         capture_output=True,
         text=True,
         cwd=PROJECT_ROOT,
@@ -37,13 +36,37 @@ def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     print("=" * 60)
-    print("A2A_min_v1 — Extension Goals Evidence Collection")
+    print("A2A_min_v1 — Comprehensive Evidence Collection")
     print(f"Timestamp: {timestamp}")
     print("=" * 60)
 
     test_specs = [
-        ("tests/test_router.py", "Extension Goal 1: Multi-Provider Router"),
-        ("tests/test_tracing.py", "Extension Goal 2: OpenTelemetry Tracing"),
+        ("tests/test_comprehensive.py", "All Extension Goals — Comprehensive Suite"),
+        ("tests/test_comprehensive.py::TestSchemaValidation", "Protocol Schema Validation (#1)"),
+        ("tests/test_comprehensive.py::TestErrorCodeSystem", "Error Code System (#2)"),
+        ("tests/test_comprehensive.py::TestSeqChecker", "Seq Order Check (#5)"),
+        ("tests/test_comprehensive.py::TestTerminalStateHandling", "Terminal State Handling (#6)"),
+        ("tests/test_comprehensive.py::TestStateMachine", "State Machine (#7)"),
+        ("tests/test_comprehensive.py::TestHeartbeat", "Heartbeat (#8)"),
+        ("tests/test_comprehensive.py::TestCancelPropagation", "Cancel Propagation (#9)"),
+        ("tests/test_comprehensive.py::TestTimeoutClassification", "Timeout Classification (#11)"),
+        ("tests/test_comprehensive.py::TestFlowControl", "Flow Control (#10)"),
+        ("tests/test_comprehensive.py::TestProviderAdapter", "Provider Adapter (#12, #36)"),
+        ("tests/test_comprehensive.py::TestLoggingAndTracing", "Structured Logging & Tracing (#16, #18)"),
+        ("tests/test_comprehensive.py::TestMetrics", "Metrics (#17)"),
+        ("tests/test_comprehensive.py::TestAudit", "Audit (#27)"),
+        ("tests/test_comprehensive.py::TestSecurity", "Security (#28)"),
+        ("tests/test_comprehensive.py::TestPolicyFilter", "Policy Filter (#29)"),
+        ("tests/test_comprehensive.py::TestProtocolCompatibility", "Protocol Compatibility (#32)"),
+        ("tests/test_comprehensive.py::TestVersionNegotiation", "Version Negotiation (#33)"),
+        ("tests/test_comprehensive.py::TestFaultInjection", "Fault Injection (#22)"),
+        ("tests/test_comprehensive.py::TestConfiguration", "Configuration (#15)"),
+        ("tests/test_comprehensive.py::TestConcurrentIsolation", "Concurrent Session Isolation (#24)"),
+        ("tests/test_comprehensive.py::TestOpenTelemetry", "OpenTelemetry (#19)"),
+        ("tests/test_comprehensive.py::TestIdempotency", "Idempotency (#4)"),
+        ("tests/test_comprehensive.py::TestRetryMechanism", "Retry Mechanism (#3)"),
+        ("tests/test_comprehensive.py::TestIntegration", "Integration Pipeline"),
+        ("tests/test_comprehensive.py::TestExtendedIntegration", "Extended Integration (#20)"),
     ]
 
     all_results = []
@@ -75,7 +98,7 @@ def main():
     # Write human-readable log
     log_file = os.path.join(EVIDENCE_DIR, f"extension_log_{timestamp}.txt")
     with open(log_file, "w", encoding="utf-8") as f:
-        f.write(f"A2A_min_v1 Extension Goals — Test Run Log\n")
+        f.write(f"A2A_min_v1 Comprehensive Evidence — Test Run Log\n")
         f.write(f"Timestamp: {timestamp}\n")
         f.write("=" * 60 + "\n\n")
         for r in all_results:

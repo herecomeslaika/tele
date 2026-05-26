@@ -1,4 +1,4 @@
-# A2A_min_v1 Session State
+"""A2A_min_v1 session states and terminal guard."""
 
 from enum import Enum
 
@@ -14,3 +14,7 @@ class SessionState(str, Enum):
     @property
     def is_terminal(self) -> bool:
         return self in (SessionState.DONE, SessionState.FAILED, SessionState.CANCELLED)
+
+    @property
+    def is_active(self) -> bool:
+        return self in (SessionState.INVOKED, SessionState.STREAMING)

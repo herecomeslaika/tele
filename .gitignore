@@ -4,3 +4,4 @@ __pycache__/
 *.egg-info/
 .env
 evidence/logs/*.log
+evidence/audit/*.jsonl

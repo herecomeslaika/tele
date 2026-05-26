@@ -1,4 +1,4 @@
-# A2A_min_v1 Structured Logger — JSON format, mandatory fields
+"""A2A_min_v1 Structured Logger — JSON-formatted logs with required fields."""
 
 from __future__ import annotations
 
@@ -6,65 +6,78 @@ import json
 import logging
 import sys
 import time
-from typing import Any
+from typing import Any, Optional
 
 
-class StructuredLogger:
-    """
-    JSON-format structured logger for the A2A_min_v1 Gateway.
+class StructuredFormatter(logging.Formatter):
+    """Formats log records as single-line JSON objects."""
 
-    Every log entry contains these fields (null if not provided):
-      timestamp, level, event, session_id, corr_id, state, error_code, latency_ms
+    REQUIRED_FIELDS = (
+        "timestamp", "session_id", "corr_id", "seq",
+        "state", "event", "latency_ms", "error_code",
+    )
 
-    Plus any extra kwargs passed to log().
-    """
-
-    def __init__(self, name: str, output: Any = None) -> None:
-        self._name = name
-        self._output = output or sys.stdout
-
-    def log(
-        self,
-        event: str,
-        *,
-        level: str = "INFO",
-        session_id: str | None = None,
-        corr_id: str | None = None,
-        state: str | None = None,
-        error_code: str | None = None,
-        latency_ms: float | None = None,
-        **extra: Any,
-    ) -> None:
+    def format(self, record: logging.LogRecord) -> str:
         entry: dict[str, Any] = {
-            "timestamp": time.time(),
-            "level": level,
-            "logger": self._name,
-            "event": event,
-            "session_id": session_id,
-            "corr_id": corr_id,
-            "state": state,
-            "error_code": error_code,
-            "latency_ms": latency_ms,
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
         }
-        entry.update(extra)
 
-        # Remove None values for cleaner output, but keep mandatory fields as null
-        line = json.dumps(entry, default=str, ensure_ascii=False)
-        self._output.write(line + "\n")
-        self._output.flush()
+        # Merge structured extra fields
+        if hasattr(record, "structured_extra"):
+            entry.update(record.structured_extra)
+
+        # Ensure all required fields exist (null if missing)
+        for f in self.REQUIRED_FIELDS:
+            if f not in entry:
+                entry[f] = None
+
+        # Override timestamp with ISO format
+        entry["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(record.created))
+        if record.msecs:
+            entry["timestamp"] += f".{int(record.msecs):03d}"
+
+        if record.exc_info and record.exc_info[1]:
+            entry["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(entry, default=str, ensure_ascii=False)
 
 
-class _LoggerRegistry:
-    """Simple registry so get_logger returns the same instance per name."""
+def setup_logger(name: str = "a2a", level: int = logging.INFO) -> logging.Logger:
+    """Create and configure a structured JSON logger."""
+    logger = logging.getLogger(name)
+    if logger.handlers:
+        return logger
 
-    _loggers: dict[str, StructuredLogger] = {}
-
-    @classmethod
-    def get(cls, name: str, output: Any = None) -> StructuredLogger:
-        if name not in cls._loggers:
-            cls._loggers[name] = StructuredLogger(name, output)
-        return cls._loggers[name]
+    logger.setLevel(level)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(StructuredFormatter())
+    logger.addHandler(handler)
+    return logger
 
 
-def get_logger(name: str, output: Any = None) -> StructuredLogger:
-    return _LoggerRegistry.get(name, output)
+def log_event(
+    logger: logging.Logger,
+    event: str,
+    session_id: str = "",
+    corr_id: str = "",
+    seq: Optional[int] = None,
+    state: Optional[str] = None,
+    latency_ms: Optional[float] = None,
+    error_code: Optional[str] = None,
+    **extra: Any,
+) -> None:
+    """Emit a structured log event with all required fields."""
+    structured = {
+        "event": event,
+        "session_id": session_id,
+        "corr_id": corr_id,
+        "seq": seq,
+        "state": state,
+        "latency_ms": latency_ms,
+        "error_code": error_code,
+    }
+    structured.update(extra)
+    logger.info(event, extra={"structured_extra": structured})

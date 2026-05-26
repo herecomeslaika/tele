@@ -1,17 +1,17 @@
-# A2A_min_v1 Mock Provider Adapter — scenario-injectable test double
+"""A2A_min_v1 Mock Provider Adapter — scenario-injectable test double."""
 
 from __future__ import annotations
 
 import asyncio
+import json
+import time
 from enum import Enum
-from typing import AsyncIterator
+from typing import Any, AsyncIterator, Optional
 
-from app.adapters.provider import ProviderAdapter
-from app.core.errors import ErrorCode, make_error_envelope
-from app.core.logger import get_logger
-from app.models.envelope import Envelope, MessageType
+from app.adapters.provider import ProviderAdapter, ProviderConfig, ProviderType, StreamEvent
+from app.core.logger import setup_logger, log_event
 
-logger = get_logger("mock_provider")
+logger = setup_logger("mock_provider")
 
 
 class MockScenario(str, Enum):
@@ -19,17 +19,28 @@ class MockScenario(str, Enum):
     DELAY = "delay"
     ERROR = "error"
     TIMEOUT = "timeout"
+    MID_STREAM_ERROR = "mid_stream_error"
+    BAD_JSON = "bad_json"
+    DUPLICATE_TOKEN = "duplicate_token"
+    OUT_OF_ORDER = "out_of_order"
+    PARTIAL_DISCONNECT = "partial_disconnect"
+    LONG_RESPONSE = "long_response"
 
 
 class MockProviderAdapter(ProviderAdapter):
-    """
-    Highly controllable mock provider for integration testing.
+    """Highly controllable mock provider for integration testing.
 
-    Accepts a `scenario` parameter to simulate:
-      - normal:  yields 3 STREAM_CHUNKs then STREAM_END
+    Scenarios:
+      - normal:  yields N chunks then end
       - delay:   inserts artificial delay between chunks
-      - error:   yields one chunk then emits a structured ERROR
-      - timeout: never yields any chunk (hangs indefinitely)
+      - error:   immediate error on invoke
+      - timeout: never yields (hangs indefinitely)
+      - mid_stream_error: yields K chunks then error
+      - bad_json: yields malformed JSON content
+      - duplicate_token: yields the same token twice
+      - out_of_order: yields seq numbers out of order
+      - partial_disconnect: yields some chunks then stops (no end event)
+      - long_response: yields a very long response
     """
 
     def __init__(
@@ -38,111 +49,102 @@ class MockProviderAdapter(ProviderAdapter):
         chunk_count: int = 3,
         chunk_delay: float = 0.1,
         error_after_chunk: int = 1,
+        chunk_content: Optional[list[str]] = None,
     ) -> None:
+        config = ProviderConfig(
+            provider_type=ProviderType.MOCK,
+            name=f"mock_{scenario.value}",
+            base_url="mock://localhost",
+            model="mock-model",
+        )
+        super().__init__(config)
         self.scenario = scenario
         self.chunk_count = chunk_count
         self.chunk_delay = chunk_delay
         self.error_after_chunk = error_after_chunk
+        self.chunk_content = chunk_content or ["Hello", " world", "!"]
 
-    async def invoke(self, envelope: Envelope) -> Envelope:
+    async def invoke(self, prompt: str, **kwargs: Any) -> AsyncIterator[StreamEvent]:
+        start = time.time()
+
         if self.scenario == MockScenario.ERROR:
-            return make_error_envelope(
-                code=ErrorCode.PROVIDER_TIMEOUT,
-                detail="Mock provider simulated error",
-                version=envelope.version,
-                session_id=envelope.session_id,
-                corr_id=envelope.corr_id,
-            )
+            yield StreamEvent(type="error", error_code="PROVIDER_ERROR",
+                              error_msg="Mock provider simulated immediate error")
+            return
 
         if self.scenario == MockScenario.TIMEOUT:
+            log_event(logger, "mock_provider.timeout_start")
             await asyncio.sleep(9999)
-            # unreachable, but for type checker
-            return make_error_envelope(
-                code=ErrorCode.PROVIDER_TIMEOUT,
-                detail="Mock provider simulated timeout",
-                version=envelope.version,
-                session_id=envelope.session_id,
-                corr_id=envelope.corr_id,
-            )
+            return
 
-        if self.scenario == MockScenario.DELAY:
-            await asyncio.sleep(self.chunk_delay)
+        if self.scenario == MockScenario.BAD_JSON:
+            yield StreamEvent(type="chunk", content="{'malformed': json,}")
+            yield StreamEvent(type="chunk", content="<not valid>")
+            yield StreamEvent(type="end", finish_reason="stop")
+            return
 
-        return Envelope(
-            version=envelope.version,
-            type=MessageType.STREAM_END,
-            session_id=envelope.session_id,
-            corr_id=envelope.corr_id,
-            seq=envelope.seq + 1,
-            payload={"mock": True, "echo": envelope.payload},
-        )
+        if self.scenario == MockScenario.PARTIAL_DISCONNECT:
+            for i in range(min(2, self.chunk_count)):
+                await asyncio.sleep(self.chunk_delay)
+                yield StreamEvent(type="chunk", content=self.chunk_content[i % len(self.chunk_content)])
+            # Just stop — no end event, no error event
+            return
 
-    async def stream(self, envelope: Envelope) -> AsyncIterator[Envelope]:
-        seq = envelope.seq
+        if self.scenario == MockScenario.DUPLICATE_TOKEN:
+            for i in range(self.chunk_count):
+                await asyncio.sleep(self.chunk_delay)
+                content = self.chunk_content[i % len(self.chunk_content)]
+                yield StreamEvent(type="chunk", content=content)
+                # Yield the same content again (duplicate token)
+                yield StreamEvent(type="chunk", content=content)
+            yield StreamEvent(type="end", finish_reason="stop")
+            return
 
-        if self.scenario == MockScenario.TIMEOUT:
-            logger.log(
-                event="mock_provider.timeout_start",
-                session_id=envelope.session_id,
-                corr_id=envelope.corr_id,
-            )
-            # Hang forever — the Gateway's TimeoutChecker should catch this
-            await asyncio.sleep(9999)
-            return  # unreachable
+        if self.scenario == MockScenario.OUT_OF_ORDER:
+            # Yield tokens in reverse order
+            for i in range(self.chunk_count - 1, -1, -1):
+                await asyncio.sleep(self.chunk_delay)
+                yield StreamEvent(type="chunk", content=self.chunk_content[i % len(self.chunk_content)])
+            yield StreamEvent(type="end", finish_reason="stop")
+            return
 
-        for i in range(1, self.chunk_count + 1):
-            # Error scenario: emit N chunks then ERROR
-            if self.scenario == MockScenario.ERROR and i > self.error_after_chunk:
-                logger.log(
-                    event="mock_provider.error_injected",
-                    session_id=envelope.session_id,
-                    corr_id=envelope.corr_id,
-                    error_code=ErrorCode.PROVIDER_TIMEOUT.value,
-                )
-                yield make_error_envelope(
-                    code=ErrorCode.PROVIDER_TIMEOUT,
-                    detail="Mock provider simulated upstream crash",
-                    version=envelope.version,
-                    session_id=envelope.session_id,
-                    corr_id=envelope.corr_id,
-                    seq=seq + 1,
-                )
-                return
+        if self.scenario == MockScenario.LONG_RESPONSE:
+            for i in range(50):
+                await asyncio.sleep(0.02)
+                yield StreamEvent(type="chunk", content=f"word_{i} ")
+            yield StreamEvent(type="end", finish_reason="stop")
+            return
 
+        # Normal / Delay / Mid-stream error
+        for i in range(self.chunk_count):
             # Delay scenario: pause between chunks
-            if self.scenario == MockScenario.DELAY and i > 1:
+            if self.scenario == MockScenario.DELAY and i > 0:
                 await asyncio.sleep(self.chunk_delay)
 
-            seq += 1
-            logger.log(
-                event="mock_provider.chunk",
-                session_id=envelope.session_id,
-                corr_id=envelope.corr_id,
-            )
-            yield Envelope(
-                version=envelope.version,
-                type=MessageType.STREAM_CHUNK,
-                session_id=envelope.session_id,
-                corr_id=envelope.corr_id,
-                seq=seq,
-                payload={"mock": True, "chunk": i, "token": f"token_{i}"},
-            )
+            # Mid-stream error: emit N chunks then error
+            if self.scenario == MockScenario.MID_STREAM_ERROR and i >= self.error_after_chunk:
+                log_event(logger, "mock_provider.error_injected",
+                          error_code="PROVIDER_ERROR")
+                yield StreamEvent(type="error", error_code="PROVIDER_ERROR",
+                                  error_msg="Mock provider simulated upstream crash")
+                return
 
-        # Normal / Delay: end with STREAM_END
-        seq += 1
-        logger.log(
-            event="mock_provider.stream_end",
-            session_id=envelope.session_id,
-            corr_id=envelope.corr_id,
-        )
-        yield Envelope(
-            version=envelope.version,
-            type=MessageType.STREAM_END,
-            session_id=envelope.session_id,
-            corr_id=envelope.corr_id,
-            seq=seq,
-            payload={"mock": True, "reason": "complete"},
-        )
+            content = self.chunk_content[i % len(self.chunk_content)]
+            latency_ms = (time.time() - start) * 1000
+            log_event(logger, "mock_provider.chunk", latency_ms=round(latency_ms, 1))
+            yield StreamEvent(type="chunk", content=content)
+
+        # End
+        latency_ms = (time.time() - start) * 1000
+        log_event(logger, "mock_provider.stream_end", latency_ms=round(latency_ms, 1))
+        yield StreamEvent(type="end", finish_reason="stop")
+
+    async def invoke_sync(self, prompt: str, **kwargs: Any) -> str:
+        if self.scenario == MockScenario.ERROR:
+            raise Exception("Mock provider error")
+        if self.scenario == MockScenario.TIMEOUT:
+            await asyncio.sleep(9999)
+        return " ".join(self.chunk_content[:self.chunk_count])
 
     async def cancel(self, session_id: str) -> None:
-        logger.log(event="mock_provider.cancel", session_id=session_id)
+        log_event(logger, "mock_provider.cancel")

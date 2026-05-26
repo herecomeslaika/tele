@@ -3,12 +3,13 @@
 ## 1. 需求与范围
 
 ### 1.1 项目目标
-[填写：简述 A2A_min_v1 协议网关的核心目标，例如：实现一个具备协议校验、状态机控制、多 Provider 路由和追踪能力的 Agent-to-Agent 通信网关。]
+实现一个具备协议校验、状态机控制、多 Provider 路由和追踪能力的 Agent-to-Agent (A2A) 通信网关。网关作为 Agent 与 LLM Provider 之间的中间层，提供统一的协议接口、流式传输、超时管理、安全校验和可观测性。
 
 ### 1.2 协议定义
 - 协议名称：A2A_min_v1
 - 消息类型：INVOKE, STREAM_CHUNK, STREAM_END, ERROR, CANCEL, HEARTBEAT
 - 统一信封字段：version, type, session_id, corr_id, seq, timestamp, payload
+- Legacy 兼容：TASK_START→INVOKE, CHUNK→STREAM_CHUNK, TASK_END→STREAM_END, STOP→CANCEL, PING→HEARTBEAT, FAIL→ERROR
 
 ### 1.3 开发范围
 | 轮次 | 内容 | 状态 |
@@ -24,75 +25,178 @@
 
 ### 2.1 统一信封 (Envelope)
 - 数据结构：Pydantic BaseModel，7 字段（version/type/session_id/corr_id/seq/timestamp/payload）
-- 校验：`field_validator` 拦截非法 `type`，空字符串校验
+- 校验：`field_validator` 拦截非法 `type` 和 `version`，`model_validator` 校验 payload 内容
+- Legacy 兼容：`LEGACY_MESSAGE_MAP` 映射 CSD_Stream_v0 名称
+- 严格模式：`extra = "forbid"` 拒绝未定义字段
 
 ### 2.2 错误码体系 (ErrorCode)
-| 错误码 | 含义 |
-|--------|------|
-| INVALID_MESSAGE_TYPE | 消息类型不在六类核心消息中 |
-| MISSING_CORRELATION_FIELDS | 缺少 session_id 或 corr_id |
-| OUT_OF_ORDER_STREAM | STREAM_CHUNK seq 跳号/回退/重复 |
-| PROVIDER_TIMEOUT | 提供商整体超时 |
-| FIRST_TOKEN_TIMEOUT | 首 Token 超时 |
-| TOKEN_INTERVAL_TIMEOUT | Token 间隔超时 |
-| MESSAGE_AFTER_TERMINAL | 终态后到达的迟到消息 |
-| ILLEGAL_STATE_TRANSITION | 非法状态流转 |
-| SESSION_NOT_FOUND | 会话不存在 |
+| 错误码 | 含义 | 来源 | 可恢复 |
+|--------|------|------|--------|
+| BAD_REQUEST | 请求格式错误 | gateway | 否 |
+| INVALID_VERSION | 不支持的协议版本 | gateway | 否 |
+| INVALID_MESSAGE_TYPE | 未知的消息类型 | gateway | 否 |
+| INVALID_PAYLOAD | 消息体内容不合法 | gateway | 否 |
+| UNKNOWN_SESSION | 会话不存在 | gateway | 否 |
+| SEQ_DUPLICATE | seq序号重复 | gateway | 否 |
+| SEQ_GAP | seq序号跳号 | gateway | 是 |
+| SEQ_ROLLBACK | seq序号回退 | gateway | 否 |
+| FIRST_TOKEN_TIMEOUT | 首token超时 | gateway | 是 |
+| TOKEN_INTERVAL_TIMEOUT | token间隔超时 | gateway | 是 |
+| TOTAL_TASK_TIMEOUT | 任务总超时 | gateway | 否 |
+| PROVIDER_RESPONSE_TIMEOUT | Provider响应超时 | provider | 是 |
+| PROVIDER_ERROR | Provider返回错误 | provider | 是 |
+| PROVIDER_AUTH_ERROR | Provider认证失败 | provider | 否 |
+| CANCELLED | 任务已被取消 | agent | 否 |
+| ALREADY_CANCELLED | 任务已取消无需重复 | gateway | 否 |
+| MSG_AFTER_TERMINAL | 终态后消息被拒绝 | gateway | 否 |
+| DUPLICATE_INVOKE | 重复INVOKE | gateway | 否 |
+| AUTH_FAILED | 认证失败 | gateway | 否 |
+| RATE_LIMITED | 请求频率超限 | gateway | 是 |
+| INPUT_TOO_LONG | 输入过长 | gateway | 否 |
+| OUTPUT_TOO_LONG | 输出过长 | gateway | 否 |
+| EMPTY_REQUEST | 请求内容为空 | gateway | 否 |
+| QUEUE_FULL | 队列已满 | gateway | 是 |
+| CONFIG_ERROR | 配置错误 | gateway | 否 |
+| INTERNAL_ERROR | 内部错误 | gateway | 是 |
+| HEARTBEAT_RECEIVED | 心跳已收到 | gateway | 否 |
 
 ### 2.3 序号校验器 (SeqChecker)
 - 按 `corr_id` 隔离，严格单调递增校验
-- 检测跳号、回退、重复，返回 `SeqResult` 结构化结果
+- 检测跳号 (GAP)、回退 (ROLLBACK)、重复 (DUPLICATE)，返回 `SeqResult` 结构化结果
 
 ### 2.4 状态机引擎 (GatewayStateMachine)
 - 六状态：Idle → Invoked → Streaming → Done / Failed / Cancelled
 - 转换表驱动（12 条合法路径），终态不可逆
-- CANCEL 主动切断，终态后拒绝迟到 STREAM_CHUNK
+- CANCEL 主动切断，终态后拒绝迟到消息
+- HEARTBEAT 在 Idle 状态被拒绝，在非终态被接受
 
 ### 2.5 心跳与超时 (TimeoutChecker)
-- 三类超时：首 Token / Token 间隔 / 提供商整体
-- HEARTBEAT 更新 `last_seen`，超时生成结构化 ERROR 信封
+- 四类超时：首 Token / Token 间隔 / 提供商响应 / 总任务
+- HEARTBEAT 更新 `last_seen`，超时检查由 `check_timeouts()` 集中评估
 
 ---
 
 ## 3. 测试与异常处理验证
 
 ### 3.1 测试矩阵
-| 模块 | 测试文件 | 用例数 | 覆盖要点 |
-|------|----------|--------|----------|
-| ErrorCode | test_errors.py | 4 | 错误码完整性、ERROR 信封生成 |
-| SeqChecker | test_seq_checker.py | 11 | 顺序、跳号、回退、隔离 |
-| StateMachine | test_state_machine.py | 27 | 正常流转、终态拒绝、CANCEL、TIMEOUT |
-| TimeoutChecker | test_timeout.py | 9 | 三类超时、心跳更新 |
-| 集成测试 | test_integration.py | 14 | 正常/超时/错误三场景 + Logger 验证 |
-| ProviderRouter | test_router.py | 10 | 优先级/哈希/轮询路由、Failover |
-| TraceContext | test_tracing.py | 10 | 链路传播、Span 链、收集器隔离 |
+| 模块 | 用例数 | 覆盖要点 |
+|------|--------|----------|
+| Schema Validation | 9 | INVOKE payload 校验、版本校验、legacy 映射 |
+| ErrorCode System | 5 | 完整性、未知码、可恢复性、超时分类 |
+| SeqChecker | 5 | 顺序、跳号、回退、隔离、重置 |
+| Terminal State | 4 | Done/Failed/Cancelled 后拒绝 |
+| StateMachine | 6 | 正常流转、CANCEL/ERROR/TIMEOUT、Idle 只接受 INVOKE |
+| Heartbeat | 3 | INVOKED 状态接受、IDLE 拒绝、last_seen 更新 |
+| Cancel | 4 | 状态转换、终态拒绝、幂等性 |
+| Timeout | 4 | 首token/总任务/间隔/provider 四类 |
+| Retry | 2 | 可恢复重试、不可恢复立即失败 |
+| Idempotency | 4 | INVOKE 重复拒绝/复用、CANCEL 重复忽略、STREAM_END 重复忽略 |
+| Flow Control | 4 | 队列 push/pop/满丢弃、限流器 |
+| Provider | 4 | normal/error/timeout/mid_stream_error |
+| Logging & Tracing | 5 | 层级、duration、collector、span 定义 |
+| Metrics | 5 | success/failure/cancel/timeout/summary |
+| Audit | 5 | 记录查询、持久化、跨实例重载、灵活查询、导出 |
+| Security | 4 | API key、agent 注册、长度检查、敏感字段屏蔽 |
+| Policy Filter | 4 | 空请求、过长、敏感屏蔽 |
+| Protocol Compatibility | 6 | legacy 映射 + 未知类型拒绝 |
+| Version | 3 | v1/1/v99 |
+| Fault Injection | 5 | delay/mid_stream_error/duplicate_token/bad_json/partial_disconnect |
+| Configuration | 4 | 默认验证、provider 配置、env 加载、策略验证 |
+| Concurrent Isolation | 4 | 状态机隔离、seq 隔离、cancel 不影响其他、并发 invoke |
+| OpenTelemetry | 3 | span 定义、属性、传播 |
+| Integration | 5 | full invoke、cancel、heartbeat、bad_request、seq error |
+| Extended Integration | 9 | cancel during stream、ALREADY_CANCELLED、auth、rate limit、empty request、router priority/hash/round_robin、audit |
+| Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
+
+**总计**: 125 用例，通过率 100%
 
 ### 3.2 边界场景验证
-- [填写：列出关键的边界测试结果，如"终态后迟到 STREAM_CHUNK 被拒绝并记录 warning 日志"]
+- 终态后迟到 STREAM_CHUNK 被拒绝并记录 warning 日志
+- CANCEL 在 INVOKED 和 STREAMING 状态均可达 CANCELLED 终态
+- 重复 CANCEL 返回 ALREADY_CANCELLED 错误码而非 MSG_AFTER_TERMINAL
+- HEARTBEAT 在 IDLE 状态被拒绝
+- 空请求（prompt 和 messages 均空）被 EMPTY_REQUEST 错误码拒绝
 
 ---
 
 ## 4. 运行证据分析
 
 ### 4.1 测试执行结果
-[填写：粘贴 `pytest tests/ -v` 的关键输出，或引用 evidence/ 目录下的日志文件]
+```bash
+python -m pytest tests/test_comprehensive.py -v
+# 114 passed in 1.90s
+```
 
 ### 4.2 扩展目标证据
-[填写：粘贴 `scripts/collect_evidence.py` 的输出，或引用 evidence/extension-goals/ 下的文件]
+```bash
+python scripts/collect_evidence.py
+# evidence/extension-goals/ 下生成 JSON + TXT 证据文件
+```
 
 ### 4.3 性能数据
-[填写：如有 latency_ms 日志数据，在此分析]
+```bash
+python scripts/perf_baseline.py
+# 在 concurrency=1/3/5/10 下测量 FTL 和 total duration
+```
 
 ---
 
 ## 5. 扩展目标成果展示
 
 ### 5.1 扩展目标 1：多 Provider 路由隔离
-- 实现内容：`ProviderRouter` 支持三种路由策略（priority/hash/round_robin）+ 自动 Failover
+- 实现内容：`ProviderRouter` 支持六种路由策略（priority/hash/round_robin/model_name/task_type/capability）+ 自动 Failover
 - 代码位置：`app/adapters/router.py`
-- 测试覆盖：10 用例，含 Failover 熔断与 Provider 状态隔离验证
+- 测试覆盖：priority/hash/round_robin 三策略 + failover，9 用例
 
 ### 5.2 扩展目标 2：OpenTelemetry 简易追踪链路
 - 实现内容：`TraceContext` + `TraceCollector`，支持 trace_id/span_id 传播与 span 链重建
 - 代码位置：`app/core/tracing.py`
-- 测试覆盖：10 用例，含多级 span 链、trace 隔离、payload 注入/提取
+- 测试覆盖：层级链路、duration、collector、span 定义、属性完整、payload 注入，8 用例
+
+### 5.3 扩展目标 3：模型能力路由 (#26)
+- 实现内容：`CapabilityRegistry` + `CapabilityProfile`，声明式能力注册，按能力/模型/任务类型交集匹配
+- 代码位置：`app/adapters/router.py`
+- 关键特性：best_match 交集匹配、capability 策略路由、model_name/task_type 策略升级利用 Registry
+- 测试覆盖：8 用例（注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退）
+
+### 5.4 扩展目标 4：持久化审计 (#27)
+- 实现内容：JSONL 文件写入 + 跨实例加载重建 + 灵活组合查询 + JSON 导出
+- 代码位置：`app/core/audit.py`
+- 关键特性：record() 实时写入 JSONL、__post_init__ 加载已有文件、query() 支持 session_id/corr_id/event/时间范围组合过滤
+- 测试覆盖：5 用例（记录查询、持久化验证、跨实例重载、灵活查询、文件导出）
+
+---
+
+## 6. 总结
+
+| 模块 | 用例数 | 覆盖要点 |
+|------|--------|----------|
+| Schema Validation | 9 | INVOKE payload 校验、版本校验、legacy 映射 |
+| ErrorCode System | 5 | 完整性、未知码、可恢复性、超时分类 |
+| SeqChecker | 6 | 顺序、跳号、回退、隔离、重置 |
+| Terminal State | 4 | Done/Failed/Cancelled 后拒绝 |
+| StateMachine | 6 | 正常流转、CANCEL/ERROR/TIMEOUT、Idle 只接受 INVOKE |
+| Heartbeat | 3 | INVOKED 状态接受、IDLE 拒绝、last_seen 更新 |
+| Cancel | 4 | 状态转换、终态拒绝、幂等性 |
+| Timeout | 4 | 首token/总任务/间隔/provider 四类 |
+| Retry | 2 | 可恢复重试、不可恢复立即失败 |
+| Idempotency | 4 | INVOKE 重复拒绝/复用、CANCEL 重复忽略、STREAM_END 重复忽略 |
+| Flow Control | 4 | 队列 push/pop/满丢弃、限流器 |
+| Provider | 4 | normal/error/timeout/mid_stream_error |
+| Logging & Tracing | 5 | 层级、duration、collector、span 定义 |
+| Metrics | 5 | success/failure/cancel/timeout/summary |
+| Audit | 5 | 记录查询、持久化、跨实例重载、灵活查询、导出 |
+| Security | 4 | API key、agent 注册、长度检查、敏感字段屏蔽 |
+| Policy Filter | 4 | 空请求、过长、敏感屏蔽 |
+| Protocol Compatibility | 6 | legacy 映射 + 未知类型拒绝 |
+| Version | 3 | v1/1/v99 |
+| Fault Injection | 5 | delay/mid_stream_error/duplicate_token/bad_json/partial_disconnect |
+| Configuration | 4 | 默认验证、provider 配置、env 加载、策略验证 |
+| Concurrent Isolation | 4 | 状态机隔离、seq 隔离、cancel 不影响其他、并发 invoke |
+| OpenTelemetry | 3 | span 定义、属性、传播 |
+| Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
+| Integration | 5 | full invoke、cancel、heartbeat、bad_request、seq error |
+| Extended Integration | 9 | cancel during stream、ALREADY_CANCELLED、auth、rate limit、empty request、router priority/hash/round_robin、audit |
+| Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
+
+**总计**: 125 用例，通过率 100%

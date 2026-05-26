@@ -1,0 +1,50 @@
+{
+  "timestamp": "20260526_190502",
+  "results": [
+    {
+      "concurrency": 1,
+      "requests": 1,
+      "failures": 0,
+      "avg_first_token_latency_ms": 0.28,
+      "p95_first_token_latency_ms": 0.28,
+      "avg_total_duration_ms": 0.73,
+      "p95_total_duration_ms": 0.728607177734375,
+      "avg_tokens": 5
+    },
+    {
+      "concurrency": 3,
+      "requests": 3,
+      "failures": 0,
+      "avg_first_token_latency_ms": 0.04,
+      "p95_first_token_latency_ms": 0.05,
+      "avg_total_duration_ms": 0.18,
+      "p95_total_duration_ms": 0.2,
+      "avg_tokens": 5
+    },
+    {
+      "concurrency": 5,
+      "requests": 5,
+      "failures": 0,
+      "avg_first_token_latency_ms": 0.04,
+      "p95_first_token_latency_ms": 0.05,
+      "avg_total_duration_ms": 0.17,
+      "p95_total_duration_ms": 0.18,
+      "avg_tokens": 5
+    },
+    {
+      "concurrency": 10,
+      "requests": 10,
+      "failures": 0,
+      "avg_first_token_latency_ms": 0.03,
+      "p95_first_token_latency_ms": 0.04,
+      "avg_total_duration_ms": 0.14,
+      "p95_total_duration_ms": 0.17,
+      "avg_tokens": 5
+    }
+  ],
+  "timeout_test": {
+    "timeout_hit": true,
+    "error": true,
+    "total_duration_ms": 2000
+  }
+}
