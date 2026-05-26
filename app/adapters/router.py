@@ -23,6 +23,7 @@ class ProviderRoute:
     capabilities: list[str] = field(default_factory=list)
     models: list[str] = field(default_factory=list)
     task_types: list[str] = field(default_factory=list)
+    runtime: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ class ProviderRouter:
       - model_name: match by model name in the request
       - task_type: match by task_type in the request
       - capability: match by required capability tags
+      - runtime: match by runtime label (e.g. "python", "node", "go")
     """
 
     routes: list[ProviderRoute] = field(default_factory=list)
@@ -125,12 +127,14 @@ class ProviderRouter:
         capabilities: Optional[list[str]] = None,
         models: Optional[list[str]] = None,
         task_types: Optional[list[str]] = None,
+        runtime: str = "",
     ) -> None:
         self.routes.append(ProviderRoute(
             name=name, adapter=adapter, priority=priority, weight=weight,
             capabilities=capabilities or [],
             models=models or [],
             task_types=task_types or [],
+            runtime=runtime,
         ))
         self.routes.sort(key=lambda r: r.priority, reverse=True)
 
@@ -165,6 +169,8 @@ class ProviderRouter:
             return self._select_by_task_type(session_id, task_type or "")
         elif self.strategy == "capability":
             return self._select_by_capability(session_id, capabilities or [])
+        elif self.strategy == "runtime":
+            return self._select_by_runtime(session_id, capabilities or [])
         else:
             raise ValueError(f"Unknown routing strategy: {self.strategy}")
 
@@ -236,6 +242,29 @@ class ProviderRouter:
                 return route.name, route.adapter
         route = self.routes[0]
         log_event(logger, "router.capability_select_fallback", state=f"provider={route.name}")
+        return route.name, route.adapter
+
+    def _select_by_runtime(self, session_id: str, runtime_labels: list[str]) -> tuple[str, ProviderAdapter]:
+        """Route based on runtime label (e.g. 'python', 'node', 'go').
+
+        If runtime_labels are provided, match against ProviderRoute.runtime.
+        Falls back to first route if no match.
+        """
+        for label in runtime_labels:
+            for route in self.routes:
+                if route.runtime and route.runtime.lower() == label.lower():
+                    log_event(logger, "router.runtime_select",
+                              state=f"provider={route.name},runtime={label}")
+                    return route.name, route.adapter
+        # Fallback: try capabilities as runtime hint
+        for label in runtime_labels:
+            for route in self.routes:
+                if label.lower() in [c.lower() for c in route.capabilities]:
+                    log_event(logger, "router.runtime_select_cap",
+                              state=f"provider={route.name},runtime={label}")
+                    return route.name, route.adapter
+        route = self.routes[0]
+        log_event(logger, "router.runtime_select_fallback", state=f"provider={route.name}")
         return route.name, route.adapter
 
     def failover(self, failed_name: str, session_id: str) -> Optional[tuple[str, ProviderAdapter]]:

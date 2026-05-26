@@ -166,7 +166,7 @@ def validate_config(config: GatewayConfig) -> list[str]:
         if not p.model:
             errors.append(f"Provider '{p.name}' missing model")
 
-    if config.strategy not in ("priority", "hash", "round_robin", "model_name", "task_type", "capability"):
+    if config.strategy not in ("priority", "hash", "round_robin", "model_name", "task_type", "capability", "runtime"):
         errors.append(f"Unknown routing strategy: {config.strategy}")
 
     if config.max_retries < 0:

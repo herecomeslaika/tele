@@ -1811,6 +1811,64 @@ class TestMultiAgent:
         assert record.completed_at is not None
 
 
+# ===========================================================================
+# #25 — Multi-Runtime Routing Tests
+# ===========================================================================
+class TestRuntimeRouting:
+    """Test multi-runtime routing (#25)."""
+
+    def test_runtime_route_select(self):
+        from app.adapters.router import ProviderRouter
+
+        mock_py = MockProviderAdapter(scenario=MockScenario.NORMAL)
+        mock_go = MockProviderAdapter(scenario=MockScenario.NORMAL)
+
+        router = ProviderRouter(strategy="runtime")
+        router.add_route(name="python-runtime", adapter=mock_py,
+                         runtime="python", capabilities=["chat"])
+        router.add_route(name="go-runtime", adapter=mock_go,
+                         runtime="go", capabilities=["chat"])
+
+        name, _ = router.select(session_id="s1", capabilities=["python"])
+        assert name == "python-runtime"
+
+        name, _ = router.select(session_id="s1", capabilities=["go"])
+        assert name == "go-runtime"
+
+    def test_runtime_route_fallback(self):
+        from app.adapters.router import ProviderRouter
+
+        mock1 = MockProviderAdapter(scenario=MockScenario.NORMAL)
+        mock2 = MockProviderAdapter(scenario=MockScenario.NORMAL)
+
+        router = ProviderRouter(strategy="runtime")
+        router.add_route(name="python-runtime", adapter=mock1,
+                         runtime="python")
+        router.add_route(name="node-runtime", adapter=mock2,
+                         runtime="node")
+
+        # Request unknown runtime → fallback to first
+        name, _ = router.select(session_id="s1", capabilities=["rust"])
+        assert name == "python-runtime"
+
+    def test_runtime_route_capability_fallback(self):
+        """If no runtime match, try matching capabilities as runtime hint."""
+        from app.adapters.router import ProviderRouter
+
+        mock1 = MockProviderAdapter(scenario=MockScenario.NORMAL)
+        mock2 = MockProviderAdapter(scenario=MockScenario.NORMAL)
+
+        router = ProviderRouter(strategy="runtime")
+        router.add_route(name="py-provider", adapter=mock1,
+                         runtime="python", capabilities=["code", "reasoning"])
+        router.add_route(name="node-provider", adapter=mock2,
+                         runtime="node", capabilities=["chat"])
+
+        # "code" is in capabilities, used as runtime hint fallback
+        name, _ = router.select(session_id="s1", capabilities=["code"])
+        assert name == "py-provider"
+
+
 # Reimport for test reference
 from app.core.tracing import SPAN_ATTRIBUTES
 

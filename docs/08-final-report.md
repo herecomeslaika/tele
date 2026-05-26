@@ -180,6 +180,40 @@ python scripts/perf_baseline.py
 
 ---
 
+## 5.6 扩展目标 6：OpenAI 与 Anthropic 双协议兼容 (#13)
+
+Gateway 通过统一 ProviderAdapter 接口兼容 OpenAI-compatible 与 Anthropic-compatible 两类协议。运行时通过 `provider_type` 配置切换调用路径。
+
+### 5.6.1 两类协议差异对照表
+
+| 维度 | OpenAI-compatible | Anthropic-compatible |
+|------|-------------------|----------------------|
+| 请求端点 | `POST /v1/chat/completions` | `POST /v1/messages` |
+| 认证方式 | `Authorization: Bearer sk-xxx` | `x-api-key: sk-ant-xxx` |
+| 请求结构 | `{"model": "...", "messages": [{"role": "user", "content": "..."}]}` | `{"model": "...", "messages": [{"role": "user", "content": "..."}], "max_tokens": 1024}` |
+| 必需字段 | model, messages | model, messages, max_tokens |
+| 流式请求 | `stream: true` | `stream: true` |
+| 流式返回格式 | `data: {"choices": [{"delta": {"content": "..."}}]}` | `event: content_block_delta` + `data: {"delta": {"text": "..."}}` |
+| 流式结束标记 | `data: [DONE]` | `event: message_stop` |
+| 错误返回 | `{"error": {"message": "...", "type": "...", "code": "..."}}` | `{"type": "error", "error": {"type": "...", "message": "..."}}` |
+| 停止条件 | `finish_reason: "stop"` | `stop_reason: "end_turn"` |
+| Token 用量位置 | `usage.prompt_tokens` / `usage.completion_tokens` | `usage.input_tokens` / `usage.output_tokens` |
+
+### 5.6.2 Gateway 内部统一处理
+
+两类协议在 Gateway 层统一为 A2A_min_v1 信封：
+- OpenAI `delta.content` → `STREAM_CHUNK.payload.content`
+- Anthropic `delta.text` → `STREAM_CHUNK.payload.content`
+- OpenAI `[DONE]` → `STREAM_END.payload.reason="stop"`
+- Anthropic `message_stop` → `STREAM_END.payload.reason="end_turn"`
+- 两类错误均转换为 `ERROR.payload.error_code="PROVIDER_ERROR"`
+
+### 5.6.3 运行时切换
+
+通过 `.env` 配置 `PROVIDER1_TYPE=openai_compatible` 或 `PROVIDER1_TYPE=anthropic` 切换调用路径，无需修改 Gateway 代码。
+
+---
+
 ## 6. 总结
 
 | 模块 | 用例数 | 覆盖要点 |

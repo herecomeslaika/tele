@@ -202,13 +202,35 @@ class MultiAgentManager:
                     model=target.capabilities[0] if target.capabilities else None,
                 )
                 chunks = []
-                async for chunk in provider_adapter.stream(
+                async for event in provider_adapter.invoke(
                     prompt=task,
-                    session_id=envelope.session_id,
-                    model=payload.get("model"),
+                    model=payload.get("model", "mock-model"),
                 ):
-                    if isinstance(chunk, dict) and chunk.get("content"):
-                        chunks.append(chunk["content"])
+                    if event.type == "chunk":
+                        chunks.append(event.content or "")
+                    elif event.type == "end":
+                        break
+                    elif event.type == "error":
+                        record.status = "failed"
+                        record.error = event.error_msg or "Provider error"
+                        record.completed_at = time.time()
+                        log_event(logger, "delegate.provider_error",
+                                  error_code="DELEGATION_FAILED",
+                                  state=f"delegation_id={delegation_id}")
+                        yield Envelope(
+                            version="v1",
+                            type=MessageType.ERROR,
+                            session_id=envelope.session_id,
+                            corr_id=envelope.corr_id,
+                            seq=envelope.seq,
+                            payload={
+                                "error_code": "DELEGATION_FAILED",
+                                "message": f"Provider error: {event.error_msg}",
+                                "delegation_id": delegation_id,
+                            },
+                        ).model_dump()
+                        target.current_tasks = max(0, target.current_tasks - 1)
+                        return
 
                 result_text = "".join(chunks) if chunks else "completed"
                 record.status = "completed"
