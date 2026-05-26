@@ -5,6 +5,7 @@ from app.core.logger import StructuredLogger, get_logger
 from app.core.seq_checker import SeqChecker
 from app.core.state_machine import GatewayStateMachine
 from app.core.timeout import TimeoutChecker, TimeoutKind
+from app.core.tracing import TraceContext, TraceCollector
 
 __all__ = [
     "ErrorCode",
@@ -15,4 +16,6 @@ __all__ = [
     "GatewayStateMachine",
     "TimeoutChecker",
     "TimeoutKind",
+    "TraceContext",
+    "TraceCollector",
 ]
