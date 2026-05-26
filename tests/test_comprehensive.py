@@ -44,6 +44,7 @@ from app.core.config import GatewayConfig, load_config, validate_config
 from app.adapters.mock_provider import MockProviderAdapter, MockScenario
 from app.adapters.provider import ProviderType
 from app.adapters.router import CapabilityProfile, CapabilityRegistry
+from app.core.multi_agent import AgentProfile, AgentRegistry, DelegationRecord, MultiAgentManager
 
 
 # ===========================================================================
@@ -1646,6 +1647,168 @@ class TestExtendedIntegration:
         events = [e.event for e in entries]
         assert "INVOKE" in events
         assert "STREAM_END" in events
+
+
+# ===========================================================================
+# #37 — MultiAgent Tests
+# ===========================================================================
+class TestMultiAgent:
+    """Test Multi-Agent registry, delegation, and coordination (#37)."""
+
+    def test_registry_register_and_lookup(self):
+        registry = AgentRegistry()
+        profile = AgentProfile(
+            agent_id="agent-1", name="Coder Bot",
+            roles=["worker", "coder"], capabilities=["code", "reasoning"],
+        )
+        registry.register(profile)
+        assert registry.get("agent-1") is not None
+        assert registry.get("agent-1").name == "Coder Bot"
+        assert registry.get("nonexistent") is None
+
+    def test_registry_find_by_capability(self):
+        registry = AgentRegistry()
+        registry.register(AgentProfile(
+            agent_id="agent-1", name="Coder",
+            capabilities=["code", "reasoning"], status="online",
+        ))
+        registry.register(AgentProfile(
+            agent_id="agent-2", name="Chat",
+            capabilities=["chat"], status="online",
+        ))
+        registry.register(AgentProfile(
+            agent_id="agent-3", name="Offline Coder",
+            capabilities=["code"], status="offline",
+        ))
+
+        results = registry.find_by_capability("code")
+        assert len(results) == 1
+        assert results[0].agent_id == "agent-1"
+
+        results = registry.find_by_capability("chat")
+        assert len(results) == 1
+        assert results[0].agent_id == "agent-2"
+
+    def test_registry_find_by_role(self):
+        registry = AgentRegistry()
+        registry.register(AgentProfile(
+            agent_id="agent-1", name="Worker", roles=["worker"], status="online",
+        ))
+        registry.register(AgentProfile(
+            agent_id="agent-2", name="Manager", roles=["coordinator"], status="online",
+        ))
+
+        results = registry.find_by_role("worker")
+        assert len(results) == 1
+        assert results[0].agent_id == "agent-1"
+
+    def test_registry_deregister(self):
+        registry = AgentRegistry()
+        registry.register(AgentProfile(agent_id="agent-1", name="Bot"))
+        assert registry.get("agent-1") is not None
+        assert registry.deregister("agent-1") is True
+        assert registry.get("agent-1") is None
+        assert registry.deregister("nonexistent") is False
+
+    def test_offline_agent_excluded(self):
+        registry = AgentRegistry()
+        registry.register(AgentProfile(
+            agent_id="agent-1", name="Offline",
+            capabilities=["code"], status="offline",
+        ))
+        registry.register(AgentProfile(
+            agent_id="agent-2", name="Online",
+            capabilities=["code"], status="online",
+        ))
+
+        results = registry.find_by_capability("code")
+        assert len(results) == 1
+        assert results[0].agent_id == "agent-2"
+
+        result = registry.find_available(capability="code")
+        assert result is not None
+        assert result.agent_id == "agent-2"
+
+    @pytest.mark.asyncio
+    async def test_delegate_to_nonexistent_agent(self):
+        manager = MultiAgentManager()
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_DELEGATE,
+            session_id="s1", corr_id="c1", seq=1,
+            payload={"target_agent": "ghost", "task": "do something"},
+        )
+        responses = []
+        async for resp in manager.handle_delegate(envelope):
+            responses.append(resp)
+
+        assert len(responses) == 1
+        assert responses[0]["type"] == "ERROR"
+        assert responses[0]["payload"]["error_code"] == "AGENT_NOT_FOUND"
+
+    @pytest.mark.asyncio
+    async def test_successful_delegation(self):
+        from app.adapters.mock_provider import MockProviderAdapter, MockScenario
+        from app.adapters.router import ProviderRouter
+
+        manager = MultiAgentManager()
+        manager.register_agent(AgentProfile(
+            agent_id="worker-1", name="Worker Bot",
+            capabilities=["code"], status="online",
+        ))
+
+        router = ProviderRouter(strategy="priority")
+        router.add_route("mock", MockProviderAdapter(scenario=MockScenario.NORMAL))
+
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_DELEGATE,
+            session_id="s1", corr_id="c1", seq=1,
+            payload={"target_agent": "worker-1", "task": "write hello world"},
+        )
+        responses = []
+        async for resp in manager.handle_delegate(envelope, router):
+            responses.append(resp)
+
+        assert len(responses) == 1
+        assert responses[0]["type"] == "AGENT_RESPONSE"
+        assert responses[0]["payload"]["status"] == "completed"
+        assert responses[0]["payload"]["target_agent"] == "worker-1"
+
+        del_id = responses[0]["payload"]["delegation_id"]
+        record = manager.get_delegation(del_id)
+        assert record is not None
+        assert record.status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_agent_response_updates_record(self):
+        manager = MultiAgentManager()
+        manager.register_agent(AgentProfile(
+            agent_id="worker-1", name="Worker",
+            capabilities=["code"], status="online",
+        ))
+
+        del_id = "del-test-001"
+        manager.delegations[del_id] = DelegationRecord(
+            delegation_id=del_id,
+            source_agent="coordinator",
+            target_agent="worker-1",
+            task="do work",
+            status="running",
+        )
+
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_RESPONSE,
+            session_id="s1", corr_id="c1", seq=2,
+            payload={
+                "delegation_id": del_id,
+                "result": "task completed successfully",
+                "status": "completed",
+            },
+        )
+        record = manager.handle_response(envelope)
+        assert record is not None
+        assert record.status == "completed"
+        assert record.result == "task completed successfully"
+        assert record.completed_at is not None
 
 
 # Reimport for test reference

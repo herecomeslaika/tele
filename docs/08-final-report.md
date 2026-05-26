@@ -59,6 +59,8 @@
 | CONFIG_ERROR | 配置错误 | gateway | 否 |
 | INTERNAL_ERROR | 内部错误 | gateway | 是 |
 | HEARTBEAT_RECEIVED | 心跳已收到 | gateway | 否 |
+| AGENT_NOT_FOUND | 目标Agent不存在 | gateway | 否 |
+| DELEGATION_FAILED | Agent委派失败 | gateway | 是 |
 
 ### 2.3 序号校验器 (SeqChecker)
 - 按 `corr_id` 隔离，严格单调递增校验
@@ -108,7 +110,7 @@
 | Extended Integration | 9 | cancel during stream、ALREADY_CANCELLED、auth、rate limit、empty request、router priority/hash/round_robin、audit |
 | Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
 
-**总计**: 125 用例，通过率 100%
+**总计**: 133 用例，通过率 100%
 
 ### 3.2 边界场景验证
 - 终态后迟到 STREAM_CHUNK 被拒绝并记录 warning 日志
@@ -165,6 +167,17 @@ python scripts/perf_baseline.py
 - 关键特性：record() 实时写入 JSONL、__post_init__ 加载已有文件、query() 支持 session_id/corr_id/event/时间范围组合过滤
 - 测试覆盖：5 用例（记录查询、持久化验证、跨实例重载、灵活查询、文件导出）
 
+### 5.5 扩展目标 5：MultiAgent 协调 (#37)
+- 实现内容：AgentProfile + AgentRegistry + DelegationRecord + MultiAgentManager
+- 代码位置：`app/core/multi_agent.py`
+- 关键特性：
+  - AgentRegistry：register/deregister/get/find_by_capability/find_by_role/find_available（排除 offline agent）
+  - MultiAgentManager：register_agent + handle_delegate（验证 target → 创建委派 → 路由到 Provider → 返回 AGENT_RESPONSE）+ handle_response（更新委派记录）
+  - AGENT_DELEGATE / AGENT_RESPONSE 消息类型 + payload 校验
+  - AGENT_NOT_FOUND / DELEGATION_FAILED 错误码
+  - GatewayApp handle_envelope 集成 + REST 端点（/agents, /agents/{id}, /agents/register, /delegations）
+- 测试覆盖：8 用例
+
 ---
 
 ## 6. 总结
@@ -195,8 +208,9 @@ python scripts/perf_baseline.py
 | Concurrent Isolation | 4 | 状态机隔离、seq 隔离、cancel 不影响其他、并发 invoke |
 | OpenTelemetry | 3 | span 定义、属性、传播 |
 | Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
+| MultiAgent | 8 | 注册查找、能力/角色过滤、注销、offline排除、委派、响应更新 |
 | Integration | 5 | full invoke、cancel、heartbeat、bad_request、seq error |
 | Extended Integration | 9 | cancel during stream、ALREADY_CANCELLED、auth、rate limit、empty request、router priority/hash/round_robin、audit |
 | Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
 
-**总计**: 125 用例，通过率 100%
+**总计**: 133 用例，通过率 100%

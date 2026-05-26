@@ -297,6 +297,25 @@ CONFIG_ERROR = _reg(ErrorCodeDef(
     description="配置错误",
 ))
 
+# ---- MULTI-AGENT family ----
+AGENT_NOT_FOUND = _reg(ErrorCodeDef(
+    code="AGENT_NOT_FOUND",
+    source="gateway",
+    trigger="Delegation target agent_id not found in the Agent Registry",
+    recoverable=False,
+    retry_recommended=False,
+    description="目标Agent不存在",
+))
+
+DELEGATION_FAILED = _reg(ErrorCodeDef(
+    code="DELEGATION_FAILED",
+    source="gateway",
+    trigger="Agent delegation could not be completed (target unavailable or error)",
+    recoverable=True,
+    retry_recommended=True,
+    description="Agent委派失败",
+))
+
 # ---- INTERNAL family ----
 INTERNAL_ERROR = _reg(ErrorCodeDef(
     code="INTERNAL_ERROR",

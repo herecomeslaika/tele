@@ -69,6 +69,17 @@ python -m app.cli_agent invoke "hello" --model mock-model
 - [x] 导出 — export_to_file() 生成独立 JSON 证据文件
 - [x] 5 个测试用例（记录查询、持久化、跨实例重载、灵活查询、导出）
 
+### #37 MultiAgent
+- [x] AgentProfile — agent_id/name/roles/capabilities/endpoint/status/max_concurrent_tasks
+- [x] AgentRegistry — register/deregister/get，find_by_capability/find_by_role/find_available（排除 offline）
+- [x] DelegationRecord — 委派记录：source/target/task/pattern/status/result/timestamps
+- [x] MultiAgentManager — register_agent + handle_delegate + handle_response + get/list_delegations
+- [x] AGENT_DELEGATE / AGENT_RESPONSE 消息类型 + payload 校验
+- [x] AGENT_NOT_FOUND / DELEGATION_FAILED 错误码
+- [x] GatewayApp 集成 — handle_envelope 处理 AGENT_DELEGATE/AGENT_RESPONSE
+- [x] REST 端点 — GET /agents, GET /agents/{id}, POST /agents/register, GET /delegations
+- [x] 8 个测试用例（注册查找、能力/角色过滤、注销、offline 排除、不存在的 agent、成功委派、响应更新）
+
 ---
 
 ## 文件清单
@@ -81,7 +92,7 @@ app/
   core/
     __init__.py           # 导出所有公共组件
     config.py             # GatewayConfig + ProviderEntry
-    errors.py             # 27 错误码 + ErrorCodeDef + 查询 API
+    errors.py             # 29 错误码 + ErrorCodeDef + 查询 API
     state_machine.py      # 六状态状态机引擎
     seq_checker.py        # 序号校验器
     timeout.py            # 四类超时检查
@@ -93,7 +104,8 @@ app/
     metrics.py            # 指标收集
     security.py           # API Key 认证 + agent 注册
     policy_filter.py      # 内容过滤 + 敏感屏蔽
-    audit.py              # 审计日志
+    audit.py              # 持久化审计日志（JSONL + 跨实例重载）
+    multi_agent.py        # Multi-Agent 注册 + 委派 + 协调
   adapters/
     provider.py           # ProviderAdapter 基类
     router.py             # 多 Provider 路由

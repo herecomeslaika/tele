@@ -25,6 +25,7 @@ from app.core.errors import (
     INVALID_VERSION, MSG_AFTER_TERMINAL, PROVIDER_ERROR, PROVIDER_RESPONSE_TIMEOUT,
     QUEUE_FULL, RATE_LIMITED, SEQ_DUPLICATE, SEQ_GAP, SEQ_ROLLBACK,
     TOTAL_TASK_TIMEOUT, TOKEN_INTERVAL_TIMEOUT, UNKNOWN_SESSION,
+    AGENT_NOT_FOUND, DELEGATION_FAILED,
     get_error_def,
 )
 from app.core.flow_control import BoundedQueue, RateLimiter
@@ -47,6 +48,7 @@ from app.models.state import SessionState
 from app.adapters.provider import ProviderAdapter, ProviderConfig, ProviderType
 from app.adapters.mock_provider import MockProviderAdapter, MockScenario
 from app.adapters.router import ProviderRouter
+from app.core.multi_agent import AgentProfile, MultiAgentManager
 
 logger = setup_logger("gateway")
 
@@ -120,6 +122,7 @@ class GatewayApp:
             backoff_factor=config.retry_backoff_factor,
         ))
         self.router = ProviderRouter(strategy=config.strategy)
+        self.multi_agent = MultiAgentManager()
         self._setup_providers()
 
     def _setup_providers(self) -> None:
@@ -529,6 +532,25 @@ class GatewayApp:
         elif envelope.type == MessageType.ERROR:
             yield envelope.model_dump()
 
+        elif envelope.type == MessageType.AGENT_DELEGATE:
+            async for resp in self.multi_agent.handle_delegate(envelope, self.router):
+                yield resp
+
+        elif envelope.type == MessageType.AGENT_RESPONSE:
+            record = self.multi_agent.handle_response(envelope)
+            if record:
+                yield make_envelope(
+                    MessageType.HEARTBEAT,
+                    envelope.session_id,
+                    envelope.corr_id,
+                    {"status": "response_recorded", "delegation_id": record.delegation_id},
+                ).model_dump()
+            else:
+                yield make_error_envelope(
+                    envelope.session_id, envelope.corr_id, UNKNOWN_SESSION.code,
+                    "Delegation ID not found",
+                ).model_dump()
+
         else:
             yield make_error_envelope(envelope.session_id, envelope.corr_id,
                                       INVALID_MESSAGE_TYPE.code,
@@ -684,6 +706,73 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
                 "description": v.description,
             }
         return JSONResponse(content=codes)
+
+    # --- Agent Registry endpoints ---
+    @app.get("/agents")
+    async def list_agents():
+        agents = gateway.multi_agent.list_agents()
+        return JSONResponse(content=[
+            {
+                "agent_id": a.agent_id,
+                "name": a.name,
+                "roles": a.roles,
+                "capabilities": a.capabilities,
+                "status": a.status,
+                "current_tasks": a.current_tasks,
+                "max_concurrent_tasks": a.max_concurrent_tasks,
+            }
+            for a in agents
+        ])
+
+    @app.get("/agents/{agent_id}")
+    async def get_agent(agent_id: str):
+        profile = gateway.multi_agent.get_agent(agent_id)
+        if not profile:
+            return JSONResponse(status_code=404,
+                                content={"error": "Agent not found", "agent_id": agent_id})
+        return JSONResponse(content={
+            "agent_id": profile.agent_id,
+            "name": profile.name,
+            "roles": profile.roles,
+            "capabilities": profile.capabilities,
+            "status": profile.status,
+            "current_tasks": profile.current_tasks,
+        })
+
+    @app.post("/agents/register")
+    async def register_agent(request: Request):
+        try:
+            raw = await request.json()
+        except Exception:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+        agent_id = raw.get("agent_id", "")
+        if not agent_id:
+            return JSONResponse(status_code=400, content={"error": "agent_id is required"})
+        profile = AgentProfile(
+            agent_id=agent_id,
+            name=raw.get("name", agent_id),
+            roles=raw.get("roles", ["worker"]),
+            capabilities=raw.get("capabilities", []),
+            status=raw.get("status", "online"),
+        )
+        gateway.multi_agent.register_agent(profile, security=gateway.security)
+        return JSONResponse(content={"agent_id": agent_id, "status": "registered"})
+
+    @app.get("/delegations")
+    async def list_delegations():
+        delegations = gateway.multi_agent.list_delegations()
+        return JSONResponse(content=[
+            {
+                "delegation_id": d.delegation_id,
+                "source_agent": d.source_agent,
+                "target_agent": d.target_agent,
+                "task": d.task,
+                "pattern": d.pattern,
+                "status": d.status,
+                "result": d.result,
+            }
+            for d in delegations
+        ])
 
     return app
 

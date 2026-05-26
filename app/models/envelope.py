@@ -18,6 +18,8 @@ class MessageType(str, enum.Enum):
     CANCEL = "CANCEL"
     HEARTBEAT = "HEARTBEAT"
     ERROR = "ERROR"
+    AGENT_DELEGATE = "AGENT_DELEGATE"
+    AGENT_RESPONSE = "AGENT_RESPONSE"
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +115,18 @@ class Envelope(BaseModel):
             if "error_code" not in p:
                 raise ValueError("ERROR payload must contain 'error_code'")
 
+        elif t == MessageType.AGENT_DELEGATE:
+            if "target_agent" not in p:
+                raise ValueError("AGENT_DELEGATE payload must contain 'target_agent'")
+            if "task" not in p:
+                raise ValueError("AGENT_DELEGATE payload must contain 'task'")
+
+        elif t == MessageType.AGENT_RESPONSE:
+            if "delegation_id" not in p:
+                raise ValueError("AGENT_RESPONSE payload must contain 'delegation_id'")
+            if "result" not in p:
+                raise ValueError("AGENT_RESPONSE payload must contain 'result'")
+
         return self
 
     model_config = {"extra": "forbid"}
@@ -155,6 +169,22 @@ class CancelPayload(BaseModel):
 
 class HeartbeatPayload(BaseModel):
     agent_status: Optional[str] = None
+
+
+class AgentDelegatePayload(BaseModel):
+    target_agent: str
+    task: str
+    pattern: str = "single"
+    context: dict[str, Any] = {}
+    delegation_id: Optional[str] = None
+    source_agent: Optional[str] = None
+
+
+class AgentResponsePayload(BaseModel):
+    delegation_id: str
+    result: str
+    status: str = "completed"
+    source_agent: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
