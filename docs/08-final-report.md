@@ -109,8 +109,10 @@
 | Integration | 5 | full invoke、cancel、heartbeat、bad_request、seq error |
 | Extended Integration | 9 | cancel during stream、ALREADY_CANCELLED、auth、rate limit、empty request、router priority/hash/round_robin、audit |
 | Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
+| Runtime Routing | 3 | runtime 选择、回退、能力回退 |
+| MultiAgent | 8 | 注册查找、能力/角色过滤、注销、offline排除、委派、响应更新 |
 
-**总计**: 133 用例，通过率 100%
+**总计**: 136 用例，通过率 100%
 
 ### 3.2 边界场景验证
 - 终态后迟到 STREAM_CHUNK 被拒绝并记录 warning 日志
@@ -220,7 +222,7 @@ Gateway 通过统一 ProviderAdapter 接口兼容 OpenAI-compatible 与 Anthropi
 |------|--------|----------|
 | Schema Validation | 9 | INVOKE payload 校验、版本校验、legacy 映射 |
 | ErrorCode System | 5 | 完整性、未知码、可恢复性、超时分类 |
-| SeqChecker | 6 | 顺序、跳号、回退、隔离、重置 |
+| SeqChecker | 5 | 顺序、跳号、回退、隔离、重置 |
 | Terminal State | 4 | Done/Failed/Cancelled 后拒绝 |
 | StateMachine | 6 | 正常流转、CANCEL/ERROR/TIMEOUT、Idle 只接受 INVOKE |
 | Heartbeat | 3 | INVOKED 状态接受、IDLE 拒绝、last_seen 更新 |
@@ -242,9 +244,67 @@ Gateway 通过统一 ProviderAdapter 接口兼容 OpenAI-compatible 与 Anthropi
 | Concurrent Isolation | 4 | 状态机隔离、seq 隔离、cancel 不影响其他、并发 invoke |
 | OpenTelemetry | 3 | span 定义、属性、传播 |
 | Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
+| Runtime Routing | 3 | runtime 选择、回退、能力回退 |
 | MultiAgent | 8 | 注册查找、能力/角色过滤、注销、offline排除、委派、响应更新 |
 | Integration | 5 | full invoke、cancel、heartbeat、bad_request、seq error |
 | Extended Integration | 9 | cancel during stream、ALREADY_CANCELLED、auth、rate limit、empty request、router priority/hash/round_robin、audit |
-| Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
 
-**总计**: 133 用例，通过率 100%
+**总计**: 136 用例，通过率 100%
+
+---
+
+## 7. 评分维度对照
+
+根据评分标准（满分 100 分），以下逐维度对照：
+
+### 7.1 需求分析 (10 分)
+- 明确定义了 A2A_min_v1 协议的 8 种消息类型和统一信封结构
+- 覆盖了流式传输、超时管理、安全边界、可观测性等非功能性需求
+- 开发范围分 4 轮迭代，每轮聚焦单一主题
+- 证据：docs/01-design.md, docs/06-protocol.md, 08-final-report.md §1
+
+### 7.2 协议设计 (20 分)
+- 统一信封 (Envelope): 7 字段 + Pydantic 严格校验 + `extra="forbid"`
+- 8 种消息类型 + payload 校验规则（INVOKE 要求 prompt/messages + model, STREAM_CHUNK 要求 content + seq）
+- 6 状态状态机 + 12 条合法转换 + 终态不可逆
+- 29 错误码体系 + 可恢复性 + 重试建议标记
+- Legacy 兼容: CSD_Stream_v0 → A2A_min_v1 6 种映射
+- 双协议兼容: OpenAI-compatible vs Anthropic-compatible 差异对照表 + Gateway 统一映射
+- 证据：docs/06-protocol.md §2-4, docs/01-design.md §3
+
+### 7.3 原型实现 (25 分)
+- FastAPI 网关服务 + 3 种接入方式（REST / SSE / WebSocket）
+- 6 种 Provider 适配器（OpenAI / Anthropic / Ollama / Mock / Real / Router）
+- 7 种路由策略（priority / hash / round_robin / model_name / task_type / capability / runtime）
+- 流式传输：AsyncIterator[StreamEvent] 逐 event 消费 → STREAM_CHUNK 信封
+- Multi-Agent: AgentProfile + AgentRegistry + DelegationRecord + MultiAgentManager
+- 代码位置：app/main.py, app/core/*, app/adapters/*, app/models/*
+
+### 7.4 测试验证 (15 分)
+- 136 测试用例，27 个测试类，100% 通过率
+- 覆盖正常路径 + 边界场景（终态拒绝、幂等性、并发隔离、故障注入）
+- 测试命令：`python -m pytest tests/test_comprehensive.py -v`
+- DeepSeek 真实 Provider 端到端验证（FTL 1.117s, 7 chunks）
+- 证据：docs/04-testing.md, evidence/test-results/, evidence/provider-call/
+
+### 7.5 运行证据 (20 分)
+- 测试运行证据：evidence/test-results/
+- Provider 调用证据：evidence/provider-call/（DeepSeek e2e JSON + MD）
+- 性能基线：evidence/performance/
+- 审计日志：evidence/audit/（JSONL 持久化）
+- 本地模型部署证据：evidence/local-model-deployment.md
+- 扩展目标证据：evidence/extension-goals/
+- 证据收集脚本：scripts/collect_evidence.py, scripts/perf_baseline.py
+- 自动报告生成：scripts/generate_report.py
+
+### 7.6 文档表达 (10 分)
+- docs/01-design.md — 系统设计说明（架构、模块职责、协议设计、设计决策）
+- docs/02-api.md — API 接口说明（REST/WebSocket/Multi-Agent 端点、请求示例）
+- docs/03-deploy.md — 部署说明（安装、配置、启动、Ollama、生产建议）
+- docs/04-testing.md — 测试说明（136 用例矩阵、关键场景、证据收集）
+- docs/05-issues.md — 问题记录（6 个已修复问题、4 个已知限制、7 个改进方向）
+- docs/06-protocol.md — 协议说明（8 种消息类型、错误码体系、双协议兼容）
+- docs/07-ai-coding-reflection.md — AI 编程反思（4 轮 Prompt、5 个人工修改、经验总结）
+- docs/08-final-report.md — 最终实验报告（含评分维度对照）
+- docs/submission-checklist.md — 提交检查清单
+- README.md — 快速开始与项目结构

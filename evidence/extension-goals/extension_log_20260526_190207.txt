@@ -1,0 +1,416 @@
+A2A_min_v1 Comprehensive Evidence — Test Run Log
+Timestamp: 20260526_190207
+============================================================
+
+## All Extension Goals — Comprehensive Suite
+Pattern: tests/test_comprehensive.py
+Status: PASSED
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\conda1\python.exe
+cachedir: .pytest_cache
+rootdir: D:\tele
+plugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 114 items
+
+tests/test_comprehensive.py::TestSchemaValidation::test_valid_invoke PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_missing_prompt_and_messages PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_missing_model_in_invoke PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_stream_chunk_requires_content PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_stream_chunk_requires_seq PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_error_requires_error_code PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_empty_session_id PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_extra_fields_rejected PASSED
+tests/test_comprehensive.py::TestSchemaValidation::test_invalid_version PASSED
+tests/test_comprehensive.py::TestErrorCodeSystem::test_all_codes_have_required_fields PASSED
+tests/test_comprehensive.py::TestErrorCodeSystem::test_get_unknown_error PASSED
+tests/test_comprehensive.py::TestErrorCodeSystem::test_recoverable_codes_are_retryable PASSED
+tests/test_comprehensive.py::TestErrorCodeSystem::test_timeout_errors_are_recoverable PASSED
+tests/test_comprehensive.py::TestErrorCodeSystem::test_provider_errors_are_recoverable PASSED
+tests/test_comprehensive.py::TestSeqChecker::test_sequential_ok PASSED
+tests/test_comprehensive.py::TestSeqChecker::test_duplicate_detected PASSED
+tests/test_comprehensive.py::TestSeqChecker::test_gap_detected PASSED
+tests/test_comprehensive.py::TestSeqChecker::test_rollback_detected PASSED
+tests/test_comprehensive.py::TestSeqChecker::test_independent_corr_ids PASSED
+tests/test_comprehensive.py::TestSeqChecker::test_reset PASSED
+tests/test_comprehensive.py::TestTerminalStateHandling::test_reject_stream_chunk_after_done PASSED
+tests/test_comprehensive.py::TestTerminalStateHandling::test_reject_cancel_after_done PASSED
+tests/test_comprehensive.py::TestTerminalStateHandling::test_reject_invoke_after_cancelled PASSED
+tests/test_comprehensive.py::TestTerminalStateHandling::test_reject_error_after_failed PASSED
+tests/test_comprehensive.py::TestStateMachine::test_full_happy_path PASSED
+tests/test_comprehensive.py::TestStateMachine::test_cancel_path PASSED
+tests/test_comprehensive.py::TestStateMachine::test_error_path PASSED
+tests/test_comprehensive.py::TestStateMachine::test_timeout_path PASSED
+tests/test_comprehensive.py::TestStateMachine::test_invoke_from_idle_only PASSED
+tests/test_comprehensive.py::TestStateMachine::test_state_corresponds_to_lab02 PASSED
+tests/test_comprehensive.py::TestHeartbeat::test_heartbeat_in_invoked_state PASSED
+tests/test_comprehensive.py::TestHeartbeat::test_heartbeat_in_idle_rejected PASSED
+tests/test_comprehensive.py::TestHeartbeat::test_heartbeat_updates_last_seen PASSED
+tests/test_comprehensive.py::TestCancelPropagation::test_cancel_sets_cancelled_state PASSED
+tests/test_comprehensive.py::TestCancelPropagation::test_cancel_in_streaming_state PASSED
+tests/test_comprehensive.py::TestCancelPropagation::test_cancel_after_terminal_rejected PASSED
+tests/test_comprehensive.py::TestCancelPropagation::test_idempotency_cancel_already_cancelled PASSED
+tests/test_comprehensive.py::TestTimeoutClassification::test_first_token_timeout PASSED
+tests/test_comprehensive.py::TestTimeoutClassification::test_total_task_timeout PASSED
+tests/test_comprehensive.py::TestTimeoutClassification::test_token_interval_timeout PASSED
+tests/test_comprehensive.py::TestTimeoutClassification::test_provider_response_timeout PASSED
+tests/test_comprehensive.py::TestRetryMechanism::test_retry_on_recoverable_error PASSED
+tests/test_comprehensive.py::TestRetryMechanism::test_no_retry_on_non_recoverable PASSED
+tests/test_comprehensive.py::TestIdempotency::test_duplicate_invoke_rejected PASSED
+tests/test_comprehensive.py::TestIdempotency::test_duplicate_invoke_terminal_reuses PASSED
+tests/test_comprehensive.py::TestIdempotency::test_duplicate_cancel_ignored PASSED
+tests/test_comprehensive.py::TestIdempotency::test_duplicate_stream_end_ignored PASSED
+tests/test_comprehensive.py::TestFlowControl::test_bounded_queue_push_pop PASSED
+tests/test_comprehensive.py::TestFlowControl::test_bounded_queue_full_drops_oldest PASSED
+tests/test_comprehensive.py::TestFlowControl::test_rate_limiter_allows_within_limit PASSED
+tests/test_comprehensive.py::TestFlowControl::test_rate_limiter_blocks_over_limit PASSED
+tests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_normal PASSED
+tests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_error PASSED
+tests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_timeout PASSED
+tests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_mid_stream_error PASSED
+tests/test_comprehensive.py::TestLoggingAndTracing::test_trace_context_hierarchy PASSED
+tests/test_comprehensive.py::TestLoggingAndTracing::test_trace_duration PASSED
+tests/test_comprehensive.py::TestLoggingAndTracing::test_trace_collector PASSED
+tests/test_comprehensive.py::TestLoggingAndTracing::test_span_operations_defined PASSED
+tests/test_comprehensive.py::TestLoggingAndTracing::test_span_attributes_defined PASSED
+tests/test_comprehensive.py::TestMetrics::test_record_success PASSED
+tests/test_comprehensive.py::TestMetrics::test_record_failure PASSED
+tests/test_comprehensive.py::TestMetrics::test_record_cancel PASSED
+tests/test_comprehensive.py::TestMetrics::test_record_timeout PASSED
+tests/test_comprehensive.py::TestMetrics::test_summary PASSED
+tests/test_comprehensive.py::TestAudit::test_audit_record_and_query PASSED
+tests/test_comprehensive.py::TestAudit::test_audit_persistence PASSED
+tests/test_comprehensive.py::TestSecurity::test_api_key_validation PASSED
+tests/test_comprehensive.py::TestSecurity::test_agent_registration PASSED
+tests/test_comprehensive.py::TestSecurity::test_input_length_check PASSED
+tests/test_comprehensive.py::TestSecurity::test_sensitive_field_masking PASSED
+tests/test_comprehensive.py::TestPolicyFilter::test_empty_request_rejected PASSED
+tests/test_comprehensive.py::TestPolicyFilter::test_input_too_long PASSED
+tests/test_comprehensive.py::TestPolicyFilter::test_output_too_long PASSED
+tests/test_comprehensive.py::TestPolicyFilter::test_sensitive_field_masking_in_filter PASSED
+tests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_task_start_mapped_to_invoke PASSED
+tests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_chunk_mapped PASSED
+tests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_stop_mapped PASSED
+tests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_ping_mapped PASSED
+tests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_fail_mapped PASSED
+tests/test_comprehensive.py::TestProtocolCompatibility::test_unknown_type_rejected PASSED
+tests/test_comprehensive.py::TestVersionNegotiation::test_v1_accepted PASSED
+tests/test_comprehensive.py::TestVersionNegotiation::test_numeric_1_accepted PASSED
+tests/test_comprehensive.py::TestVersionNegotiation::test_v99_rejected PASSED
+tests/test_comprehensive.py::TestFaultInjection::test_delay_injection PASSED
+tests/test_comprehensive.py::TestFaultInjection::test_mid_stream_error_injection PASSED
+tests/test_comprehensive.py::TestFaultInjection::test_duplicate_token_injection PASSED
+tests/test_comprehensive.py::TestFaultInjection::test_bad_json_injection PASSED
+tests/test_comprehensive.py::TestFaultInjection::test_partial_disconnect_injection PASSED
+tests/test_comprehensive.py::TestConfiguration::test_default_config_valid PASSED
+tests/test_comprehensive.py::TestConfiguration::test_config_with_provider PASSED
+tests/test_comprehensive.py::TestConfiguration::test_load_config_from_env PASSED
+tests/test_comprehensive.py::TestConfiguration::test_invalid_strategy_detected PASSED
+tests/test_comprehensive.py::TestConcurrentIsolation::test_independent_state_machines PASSED
+tests/test_comprehensive.py::TestConcurrentIsolation::test_independent_seq_checkers PASSED
+tests/test_comprehensive.py::TestConcurrentIsolation::test_cancel_does_not_affect_other_session PASSED
+tests/test_comprehensive.py::TestConcurrentIsolation::test_concurrent_invoke_isolation PASSED
+tests/test_comprehensive.py::TestOpenTelemetry::test_all_required_spans_exist PASSED
+tests/test_comprehensive.py::TestOpenTelemetry::test_span_attributes_complete PASSED
+tests/test_comprehensive.py::TestOpenTelemetry::test_trace_propagation PASSED
+tests/test_comprehensive.py::TestIntegration::test_full_invoke_pipeline PASSED
+tests/test_comprehensive.py::TestIntegration::test_cancel_pipeline PASSED
+tests/test_comprehensive.py::TestIntegration::test_heartbeat_pipeline PASSED
+tests/test_comprehensive.py::TestIntegration::test_bad_request_returns_error PASSED
+tests/test_comprehensive.py::TestIntegration::test_seq_error_returns_error PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_cancel_during_streaming PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_already_cancelled_returns_error PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_security_auth_required PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_rate_limiting_rejects_excess PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_empty_request_rejected_in_pipeline PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_multi_provider_router_select PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_router_hash_select_stable PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_router_round_robin_select PASSED
+tests/test_comprehensive.py::TestExtendedIntegration::test_audit_records_invoke_and_end PASSED
+
+============================= 114 passed in 1.83s =============================
+
+============================================================
+
+## Provider Router
+Pattern: tests/test_router.py
+Status: FAILED
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\conda1\python.exe
+cachedir: .pytest_cache
+rootdir: D:\tele
+plugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 10 items
+
+tests/test_router.py::TestPriorityRouting::test_selects_highest_priority FAILED
+tests/test_router.py::TestPriorityRouting::test_empty_routes_raises PASSED
+tests/test_router.py::TestHashRouting::test_stable_hash_same_session PASSED
+tests/test_router.py::TestHashRouting::test_different_sessions_distribute PASSED
+tests/test_router.py::TestRoundRobinRouting::test_rotates_across_providers FAILED
+tests/test_router.py::TestFailover::test_failover_on_error FAILED
+tests/test_router.py::TestFailover::test_no_failover_when_primary_ok FAILED
+tests/test_router.py::TestFailover::test_failover_returns_none_when_exhausted PASSED
+tests/test_router.py::TestFailover::test_failover_picks_next_route FAILED
+tests/test_router.py::TestProviderIsolation::test_different_providers_independent FAILED
+
+================================== FAILURES ===================================
+______________ TestPriorityRouting.test_selects_highest_priority ______________
+tests\test_router.py:30: in test_selects_highest_priority
+    assert name == "primary"
+E   AssertionError: assert 'fallback' == 'primary'
+E     
+E     - primary
+E     + fallback
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-05-26T19:02:11.356", "level": "INFO", "logger": "provider_router", "message": "router.priority_select", "event": "router.priority_select", "session_id": "", "corr_id": "", "seq": null, "state": "provider=fallback", "latency_ms": null, "error_code": null}
+------------------------------ Captured log call ------------------------------
+INFO     provider_router:logger.py:83 router.priority_select
+_____________ TestRoundRobinRouting.test_rotates_across_providers _____________
+tests\test_router.py:69: in test_rotates_across_providers
+    assert names == ["a", "b", "a", "b"]
+E   AssertionError: assert ['b', 'a', 'b', 'a'] == ['a', 'b', 'a', 'b']
+E     
+E     At index 0 diff: 'b' != 'a'
+E     
+E     Full diff:
+E       [
+E     +     'b',
+E           'a',...
+E     
+E     ...Full output truncated (4 lines hidden), use '-vv' to show
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-05-26T19:02:11.722", "level": "INFO", "logger": "provider_router", "message": "router.round_robin_select", "event": "router.round_robin_select", "session_id": "", "corr_id": "", "seq": null, "state": "provider=b", "latency_ms": null, "error_code": null}
+{"timestamp": "2026-05-26T19:02:11.722", "level": "INFO", "logger": "provider_router", "message": "router.round_robin_select", "event": "router.round_robin_select", "session_id": "", "corr_id": "", "seq": null, "state": "provider=a", "latency_ms": null, "error_code": null}
+{"timestamp": "2026-05-26T19:02:11.722", "level": "INFO", "logger": "provider_router", "message": "router.round_robin_select", "event": "router.round_robin_select", "session_id": "", "corr_id": "", "seq": null, "state": "provider=b", "latency_ms": null, "error_code": null}
+{"timestamp": "2026-05-26T19:02:11.722", "level": "INFO", "logger": "provider_router", "message": "router.round_robin_select", "event": "router.round_robin_select", "session_id": "", "corr_id": "", "seq": null, "state": "provider=a", "latency_ms": null, "error_code": null}
+------------------------------ Captured log call ------------------------------
+INFO     provider_router:logger.py:83 router.round_robin_select
+INFO     provider_router:logger.py:83 router.round_robin_select
+INFO     provider_router:logger.py:83 router.round_robin_select
+INFO     provider_router:logger.py:83 router.round_robin_select
+_____________________ TestFailover.test_failover_on_error _____________________
+tests\test_router.py:81: in test_failover_on_error
+    env = _make_env("s_failover")
+          ^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_router.py:11: in _make_env
+    return Envelope(
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Envelope
+E   version
+E     Value error, Unknown protocol version: 'A2A_min_v1'. Supported: v1 [type=value_error, input_value='A2A_min_v1', input_type=str]
+E       For further information visit https://errors.pydantic.dev/2.12/v/value_error
+________________ TestFailover.test_no_failover_when_primary_ok ________________
+tests\test_router.py:96: in test_no_failover_when_primary_ok
+    env = _make_env("s_ok")
+          ^^^^^^^^^^^^^^^^^
+tests\test_router.py:11: in _make_env
+    return Envelope(
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Envelope
+E   version
+E     Value error, Unknown protocol version: 'A2A_min_v1'. Supported: v1 [type=value_error, input_value='A2A_min_v1', input_type=str]
+E       For further information visit https://errors.pydantic.dev/2.12/v/value_error
+_________________ TestFailover.test_failover_picks_next_route _________________
+tests\test_router.py:113: in test_failover_picks_next_route
+    name, _ = router.failover("a", "s1")
+    ^^^^^^^
+E   TypeError: cannot unpack non-iterable NoneType object
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-05-26T19:02:11.743", "level": "INFO", "logger": "provider_router", "message": "router.failover_exhausted", "event": "router.failover_exhausted", "session_id": "", "corr_id": "", "seq": null, "state": "failed=a", "latency_ms": null, "error_code": "PROVIDER_ERROR"}
+------------------------------ Captured log call ------------------------------
+INFO     provider_router:logger.py:83 router.failover_exhausted
+_________ TestProviderIsolation.test_different_providers_independent __________
+tests\test_router.py:128: in test_different_providers_independent
+    env_a = _make_env("session_isolation_a")
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_router.py:11: in _make_env
+    return Envelope(
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Envelope
+E   version
+E     Value error, Unknown protocol version: 'A2A_min_v1'. Supported: v1 [type=value_error, input_value='A2A_min_v1', input_type=str]
+E       For further information visit https://errors.pydantic.dev/2.12/v/value_error
+=========================== short test summary info ===========================
+FAILED tests/test_router.py::TestPriorityRouting::test_selects_highest_priority
+FAILED tests/test_router.py::TestRoundRobinRouting::test_rotates_across_providers
+FAILED tests/test_router.py::TestFailover::test_failover_on_error - pydantic_...
+FAILED tests/test_router.py::TestFailover::test_no_failover_when_primary_ok
+FAILED tests/test_router.py::TestFailover::test_failover_picks_next_route - T...
+FAILED tests/test_router.py::TestProviderIsolation::test_different_providers_independent
+========================= 6 failed, 4 passed in 1.13s =========================
+
+============================================================
+
+## OpenTelemetry Tracing
+Pattern: tests/test_tracing.py
+Status: FAILED
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\conda1\python.exe
+cachedir: .pytest_cache
+rootdir: D:\tele
+plugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 11 items
+
+tests/test_tracing.py::TestTraceContext::test_new_root_context PASSED
+tests/test_tracing.py::TestTraceContext::test_child_inherits_trace_id PASSED
+tests/test_tracing.py::TestTraceContext::test_inject_into_payload FAILED
+tests/test_tracing.py::TestTraceContext::test_extract_from_payload FAILED
+tests/test_tracing.py::TestTraceContext::test_extract_missing_fields_returns_none PASSED
+tests/test_tracing.py::TestTraceContext::test_chain_depth PASSED
+tests/test_tracing.py::TestTraceCollector::test_record_and_retrieve PASSED
+tests/test_tracing.py::TestTraceCollector::test_multi_span_trace_chain PASSED
+tests/test_tracing.py::TestTraceCollector::test_isolation_between_traces PASSED
+tests/test_tracing.py::TestTraceCollector::test_all_traces PASSED
+tests/test_tracing.py::TestTraceCollector::test_record_span_extra_fields PASSED
+
+================================== FAILURES ===================================
+__________________ TestTraceContext.test_inject_into_payload __________________
+tests\test_tracing.py:25: in test_inject_into_payload
+    injected = ctx.inject_into_envelope(payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'TraceContext' object has no attribute 'inject_into_envelope'. Did you mean: 'inject_into_payload'?
+_________________ TestTraceContext.test_extract_from_payload __________________
+tests\test_tracing.py:32: in test_extract_from_payload
+    payload = ctx.inject_into_envelope({"data": 1})
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'TraceContext' object has no attribute 'inject_into_envelope'. Did you mean: 'inject_into_payload'?
+=========================== short test summary info ===========================
+FAILED tests/test_tracing.py::TestTraceContext::test_inject_into_payload - At...
+FAILED tests/test_tracing.py::TestTraceContext::test_extract_from_payload - A...
+========================= 2 failed, 9 passed in 0.16s =========================
+
+============================================================
+
+## State Machine
+Pattern: tests/test_state_machine.py
+Status: FAILED
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\conda1\python.exe
+cachedir: .pytest_cache
+rootdir: D:\tele
+plugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 0 items / 1 error
+
+=================================== ERRORS ====================================
+________________ ERROR collecting tests/test_state_machine.py _________________
+ImportError while importing test module 'D:\tele\tests\test_state_machine.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\conda1\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_state_machine.py:5: in <module>
+    from app.core.state_machine import (
+E   ImportError: cannot import name 'CANCEL' from 'app.core.state_machine' (D:\tele\app\core\state_machine.py)
+=========================== short test summary info ===========================
+ERROR tests/test_state_machine.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+============================== 1 error in 0.31s ===============================
+
+============================================================
+
+## Seq Checker
+Pattern: tests/test_seq_checker.py
+Status: PASSED
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\conda1\python.exe
+cachedir: .pytest_cache
+rootdir: D:\tele
+plugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 10 items
+
+tests/test_seq_checker.py::TestSeqCheckerBasic::test_first_seq_is_1 PASSED
+tests/test_seq_checker.py::TestSeqCheckerBasic::test_sequential_accepts PASSED
+tests/test_seq_checker.py::TestSeqCheckerBasic::test_gap_rejected PASSED
+tests/test_seq_checker.py::TestSeqCheckerBasic::test_duplicate_rejected PASSED
+tests/test_seq_checker.py::TestSeqCheckerBasic::test_rollback_rejected PASSED
+tests/test_seq_checker.py::TestSeqCheckerBasic::test_different_corr_ids_isolated PASSED
+tests/test_seq_checker.py::TestSeqCheckerBasic::test_cross_corr_id_no_interference PASSED
+tests/test_seq_checker.py::TestSeqCheckerReset::test_reset_allows_restart PASSED
+tests/test_seq_checker.py::TestSeqCheckerReset::test_last_seq_returns_value PASSED
+tests/test_seq_checker.py::TestSeqCheckerReset::test_last_seq_unknown_corr PASSED
+
+============================= 10 passed in 0.03s ==============================
+
+============================================================
+
+## Timeout Classifier
+Pattern: tests/test_timeout.py
+Status: FAILED
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\conda1\python.exe
+cachedir: .pytest_cache
+rootdir: D:\tele
+plugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 9 items
+
+tests/test_timeout.py::TestTimeoutChecker::test_register_and_get PASSED
+tests/test_timeout.py::TestTimeoutChecker::test_heartbeat_updates_last_seen PASSED
+tests/test_timeout.py::TestTimeoutChecker::test_heartbeat_unknown_session PASSED
+tests/test_timeout.py::TestTimeoutChecker::test_first_token_timeout PASSED
+tests/test_timeout.py::TestTimeoutChecker::test_no_timeout_when_chunk_received PASSED
+tests/test_timeout.py::TestTimeoutChecker::test_token_interval_timeout FAILED
+tests/test_timeout.py::TestTimeoutChecker::test_provider_overall_timeout FAILED
+tests/test_timeout.py::TestTimeoutChecker::test_remove_session PASSED
+tests/test_timeout.py::TestTimeoutChecker::test_error_envelope_contains_code FAILED
+
+================================== FAILURES ===================================
+_______________ TestTimeoutChecker.test_token_interval_timeout ________________
+tests\test_timeout.py:45: in test_token_interval_timeout
+    tc = TimeoutChecker(
+E   TypeError: TimeoutChecker.__init__() got an unexpected keyword argument 'provider_overall_timeout'. Did you mean 'provider_response_timeout'?
+______________ TestTimeoutChecker.test_provider_overall_timeout _______________
+tests\test_timeout.py:60: in test_provider_overall_timeout
+    tc = TimeoutChecker(provider_overall_timeout=0.05, first_token_timeout=100.0)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: TimeoutChecker.__init__() got an unexpected keyword argument 'provider_overall_timeout'. Did you mean 'provider_response_timeout'?
+____________ TestTimeoutChecker.test_error_envelope_contains_code _____________
+tests\test_timeout.py:74: in test_error_envelope_contains_code
+    tc.register("s1", "c1", version="A2A_min_v1")
+E   TypeError: TimeoutChecker.register() got an unexpected keyword argument 'version'
+=========================== short test summary info ===========================
+FAILED tests/test_timeout.py::TestTimeoutChecker::test_token_interval_timeout
+FAILED tests/test_timeout.py::TestTimeoutChecker::test_provider_overall_timeout
+FAILED tests/test_timeout.py::TestTimeoutChecker::test_error_envelope_contains_code
+========================= 3 failed, 6 passed in 0.16s =========================
+
+============================================================
+
+## Error Codes
+Pattern: tests/test_errors.py
+Status: FAILED
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\conda1\python.exe
+cachedir: .pytest_cache
+rootdir: D:\tele
+plugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 0 items / 1 error
+
+=================================== ERRORS ====================================
+____________________ ERROR collecting tests/test_errors.py ____________________
+ImportError while importing test module 'D:\tele\tests\test_errors.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+D:\conda1\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_errors.py:3: in <module>
+    from app.core.errors import ErrorCode, make_error_envelope
+E   ImportError: cannot import name 'ErrorCode' from 'app.core.errors' (D:\tele\app\core\errors.py)
+=========================== short test summary info ===========================
+ERROR tests/test_errors.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+============================== 1 error in 0.20s ===============================
+
+============================================================
+

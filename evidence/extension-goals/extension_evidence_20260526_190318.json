@@ -1,0 +1,213 @@
+{
+  "collection_timestamp": "20260526_190318",
+  "results": [
+    {
+      "label": "All Extension Goals — Comprehensive Suite",
+      "test_pattern": "tests/test_comprehensive.py",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 114 items\n\ntests/test_comprehensive.py::TestSchemaValidation::test_valid_invoke PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_missing_prompt_and_messages PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_missing_model_in_invoke PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_stream_chunk_requires_content PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_stream_chunk_requires_seq PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_error_requires_error_code PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_empty_session_id PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_extra_fields_rejected PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_invalid_version PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_all_codes_have_required_fields PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_get_unknown_error PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_recoverable_codes_are_retryable PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_timeout_errors_are_recoverable PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_provider_errors_are_recoverable PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_sequential_ok PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_duplicate_detected PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_gap_detected PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_rollback_detected PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_independent_corr_ids PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_reset PASSED\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_stream_chunk_after_done PASSED\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_cancel_after_done PASSED\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_invoke_after_cancelled PASSED\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_error_after_failed PASSED\ntests/test_comprehensive.py::TestStateMachine::test_full_happy_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_cancel_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_error_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_timeout_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_invoke_from_idle_only PASSED\ntests/test_comprehensive.py::TestStateMachine::test_state_corresponds_to_lab02 PASSED\ntests/test_comprehensive.py::TestHeartbeat::test_heartbeat_in_invoked_state PASSED\ntests/test_comprehensive.py::TestHeartbeat::test_heartbeat_in_idle_rejected PASSED\ntests/test_comprehensive.py::TestHeartbeat::test_heartbeat_updates_last_seen PASSED\ntests/test_comprehensive.py::TestCancelPropagation::test_cancel_sets_cancelled_state PASSED\ntests/test_comprehensive.py::TestCancelPropagation::test_cancel_in_streaming_state PASSED\ntests/test_comprehensive.py::TestCancelPropagation::test_cancel_after_terminal_rejected PASSED\ntests/test_comprehensive.py::TestCancelPropagation::test_idempotency_cancel_already_cancelled PASSED\ntests/test_comprehensive.py::TestTimeoutClassification::test_first_token_timeout PASSED\ntests/test_comprehensive.py::TestTimeoutClassification::test_total_task_timeout PASSED\ntests/test_comprehensive.py::TestTimeoutClassification::test_token_interval_timeout PASSED\ntests/test_comprehensive.py::TestTimeoutClassification::test_provider_response_timeout PASSED\ntests/test_comprehensive.py::TestRetryMechanism::test_retry_on_recoverable_error PASSED\ntests/test_comprehensive.py::TestRetryMechanism::test_no_retry_on_non_recoverable PASSED\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_invoke_rejected PASSED\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_invoke_terminal_reuses PASSED\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_cancel_ignored PASSED\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_stream_end_ignored PASSED\ntests/test_comprehensive.py::TestFlowControl::test_bounded_queue_push_pop PASSED\ntests/test_comprehensive.py::TestFlowControl::test_bounded_queue_full_drops_oldest PASSED\ntests/test_comprehensive.py::TestFlowControl::test_rate_limiter_allows_within_limit PASSED\ntests/test_comprehensive.py::TestFlowControl::test_rate_limiter_blocks_over_limit PASSED\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_normal PASSED\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_error PASSED\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_timeout PASSED\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_mid_stream_error PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_trace_context_hierarchy PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_trace_duration PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_trace_collector PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_span_operations_defined PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_span_attributes_defined PASSED\ntests/test_comprehensive.py::TestMetrics::test_record_success PASSED\ntests/test_comprehensive.py::TestMetrics::test_record_failure PASSED\ntests/test_comprehensive.py::TestMetrics::test_record_cancel PASSED\ntests/test_comprehensive.py::TestMetrics::test_record_timeout PASSED\ntests/test_comprehensive.py::TestMetrics::test_summary PASSED\ntests/test_comprehensive.py::TestAudit::test_audit_record_and_query PASSED\ntests/test_comprehensive.py::TestAudit::test_audit_persistence PASSED\ntests/test_comprehensive.py::TestSecurity::test_api_key_validation PASSED\ntests/test_comprehensive.py::TestSecurity::test_agent_registration PASSED\ntests/test_comprehensive.py::TestSecurity::test_input_length_check PASSED\ntests/test_comprehensive.py::TestSecurity::test_sensitive_field_masking PASSED\ntests/test_comprehensive.py::TestPolicyFilter::test_empty_request_rejected PASSED\ntests/test_comprehensive.py::TestPolicyFilter::test_input_too_long PASSED\ntests/test_comprehensive.py::TestPolicyFilter::test_output_too_long PASSED\ntests/test_comprehensive.py::TestPolicyFilter::test_sensitive_field_masking_in_filter PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_task_start_mapped_to_invoke PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_chunk_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_stop_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_ping_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_fail_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_unknown_type_rejected PASSED\ntests/test_comprehensive.py::TestVersionNegotiation::test_v1_accepted PASSED\ntests/test_comprehensive.py::TestVersionNegotiation::test_numeric_1_accepted PASSED\ntests/test_comprehensive.py::TestVersionNegotiation::test_v99_rejected PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_delay_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_mid_stream_error_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_duplicate_token_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_bad_json_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_partial_disconnect_injection PASSED\ntests/test_comprehensive.py::TestConfiguration::test_default_config_valid PASSED\ntests/test_comprehensive.py::TestConfiguration::test_config_with_provider PASSED\ntests/test_comprehensive.py::TestConfiguration::test_load_config_from_env PASSED\ntests/test_comprehensive.py::TestConfiguration::test_invalid_strategy_detected PASSED\ntests/test_comprehensive.py::TestConcurrentIsolation::test_independent_state_machines PASSED\ntests/test_comprehensive.py::TestConcurrentIsolation::test_independent_seq_checkers PASSED\ntests/test_comprehensive.py::TestConcurrentIsolation::test_cancel_does_not_affect_other_session PASSED\ntests/test_comprehensive.py::TestConcurrentIsolation::test_concurrent_invoke_isolation PASSED\ntests/test_comprehensive.py::TestOpenTelemetry::test_all_required_spans_exist PASSED\ntests/test_comprehensive.py::TestOpenTelemetry::test_span_attributes_complete PASSED\ntests/test_comprehensive.py::TestOpenTelemetry::test_trace_propagation PASSED\ntests/test_comprehensive.py::TestIntegration::test_full_invoke_pipeline PASSED\ntests/test_comprehensive.py::TestIntegration::test_cancel_pipeline PASSED\ntests/test_comprehensive.py::TestIntegration::test_heartbeat_pipeline PASSED\ntests/test_comprehensive.py::TestIntegration::test_bad_request_returns_error PASSED\ntests/test_comprehensive.py::TestIntegration::test_seq_error_returns_error PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_cancel_during_streaming PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_already_cancelled_returns_error PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_security_auth_required PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_rate_limiting_rejects_excess PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_empty_request_rejected_in_pipeline PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_multi_provider_router_select PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_router_hash_select_stable PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_router_round_robin_select PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_audit_records_invoke_and_end PASSED\n\n============================= 114 passed in 1.84s =============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Protocol Schema Validation (#1)",
+      "test_pattern": "tests/test_comprehensive.py::TestSchemaValidation",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 9 items\n\ntests/test_comprehensive.py::TestSchemaValidation::test_valid_invoke PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_missing_prompt_and_messages PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_missing_model_in_invoke PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_stream_chunk_requires_content PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_stream_chunk_requires_seq PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_error_requires_error_code PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_empty_session_id PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_extra_fields_rejected PASSED\ntests/test_comprehensive.py::TestSchemaValidation::test_invalid_version PASSED\n\n============================== 9 passed in 0.77s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Error Code System (#2)",
+      "test_pattern": "tests/test_comprehensive.py::TestErrorCodeSystem",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 5 items\n\ntests/test_comprehensive.py::TestErrorCodeSystem::test_all_codes_have_required_fields PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_get_unknown_error PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_recoverable_codes_are_retryable PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_timeout_errors_are_recoverable PASSED\ntests/test_comprehensive.py::TestErrorCodeSystem::test_provider_errors_are_recoverable PASSED\n\n============================== 5 passed in 0.76s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Seq Order Check (#5)",
+      "test_pattern": "tests/test_comprehensive.py::TestSeqChecker",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 6 items\n\ntests/test_comprehensive.py::TestSeqChecker::test_sequential_ok PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_duplicate_detected PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_gap_detected PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_rollback_detected PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_independent_corr_ids PASSED\ntests/test_comprehensive.py::TestSeqChecker::test_reset PASSED\n\n============================== 6 passed in 0.75s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Terminal State Handling (#6)",
+      "test_pattern": "tests/test_comprehensive.py::TestTerminalStateHandling",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_stream_chunk_after_done PASSED\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_cancel_after_done PASSED\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_invoke_after_cancelled PASSED\ntests/test_comprehensive.py::TestTerminalStateHandling::test_reject_error_after_failed PASSED\n\n============================== 4 passed in 0.74s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "State Machine (#7)",
+      "test_pattern": "tests/test_comprehensive.py::TestStateMachine",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 6 items\n\ntests/test_comprehensive.py::TestStateMachine::test_full_happy_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_cancel_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_error_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_timeout_path PASSED\ntests/test_comprehensive.py::TestStateMachine::test_invoke_from_idle_only PASSED\ntests/test_comprehensive.py::TestStateMachine::test_state_corresponds_to_lab02 PASSED\n\n============================== 6 passed in 0.75s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Heartbeat (#8)",
+      "test_pattern": "tests/test_comprehensive.py::TestHeartbeat",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 3 items\n\ntests/test_comprehensive.py::TestHeartbeat::test_heartbeat_in_invoked_state PASSED\ntests/test_comprehensive.py::TestHeartbeat::test_heartbeat_in_idle_rejected PASSED\ntests/test_comprehensive.py::TestHeartbeat::test_heartbeat_updates_last_seen PASSED\n\n============================== 3 passed in 0.78s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Cancel Propagation (#9)",
+      "test_pattern": "tests/test_comprehensive.py::TestCancelPropagation",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestCancelPropagation::test_cancel_sets_cancelled_state PASSED\ntests/test_comprehensive.py::TestCancelPropagation::test_cancel_in_streaming_state PASSED\ntests/test_comprehensive.py::TestCancelPropagation::test_cancel_after_terminal_rejected PASSED\ntests/test_comprehensive.py::TestCancelPropagation::test_idempotency_cancel_already_cancelled PASSED\n\n============================== 4 passed in 0.81s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Timeout Classification (#11)",
+      "test_pattern": "tests/test_comprehensive.py::TestTimeoutClassification",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestTimeoutClassification::test_first_token_timeout PASSED\ntests/test_comprehensive.py::TestTimeoutClassification::test_total_task_timeout PASSED\ntests/test_comprehensive.py::TestTimeoutClassification::test_token_interval_timeout PASSED\ntests/test_comprehensive.py::TestTimeoutClassification::test_provider_response_timeout PASSED\n\n============================== 4 passed in 0.83s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Flow Control (#10)",
+      "test_pattern": "tests/test_comprehensive.py::TestFlowControl",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestFlowControl::test_bounded_queue_push_pop PASSED\ntests/test_comprehensive.py::TestFlowControl::test_bounded_queue_full_drops_oldest PASSED\ntests/test_comprehensive.py::TestFlowControl::test_rate_limiter_allows_within_limit PASSED\ntests/test_comprehensive.py::TestFlowControl::test_rate_limiter_blocks_over_limit PASSED\n\n============================== 4 passed in 0.74s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Provider Adapter (#12, #36)",
+      "test_pattern": "tests/test_comprehensive.py::TestProviderAdapter",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_normal PASSED\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_error PASSED\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_timeout PASSED\ntests/test_comprehensive.py::TestProviderAdapter::test_mock_provider_mid_stream_error PASSED\n\n============================== 4 passed in 0.85s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Structured Logging & Tracing (#16, #18)",
+      "test_pattern": "tests/test_comprehensive.py::TestLoggingAndTracing",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 5 items\n\ntests/test_comprehensive.py::TestLoggingAndTracing::test_trace_context_hierarchy PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_trace_duration PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_trace_collector PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_span_operations_defined PASSED\ntests/test_comprehensive.py::TestLoggingAndTracing::test_span_attributes_defined PASSED\n\n============================== 5 passed in 0.74s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Metrics (#17)",
+      "test_pattern": "tests/test_comprehensive.py::TestMetrics",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 5 items\n\ntests/test_comprehensive.py::TestMetrics::test_record_success PASSED\ntests/test_comprehensive.py::TestMetrics::test_record_failure PASSED\ntests/test_comprehensive.py::TestMetrics::test_record_cancel PASSED\ntests/test_comprehensive.py::TestMetrics::test_record_timeout PASSED\ntests/test_comprehensive.py::TestMetrics::test_summary PASSED\n\n============================== 5 passed in 0.76s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Audit (#27)",
+      "test_pattern": "tests/test_comprehensive.py::TestAudit",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 2 items\n\ntests/test_comprehensive.py::TestAudit::test_audit_record_and_query PASSED\ntests/test_comprehensive.py::TestAudit::test_audit_persistence PASSED\n\n============================== 2 passed in 0.79s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Security (#28)",
+      "test_pattern": "tests/test_comprehensive.py::TestSecurity",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestSecurity::test_api_key_validation PASSED\ntests/test_comprehensive.py::TestSecurity::test_agent_registration PASSED\ntests/test_comprehensive.py::TestSecurity::test_input_length_check PASSED\ntests/test_comprehensive.py::TestSecurity::test_sensitive_field_masking PASSED\n\n============================== 4 passed in 0.77s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Policy Filter (#29)",
+      "test_pattern": "tests/test_comprehensive.py::TestPolicyFilter",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestPolicyFilter::test_empty_request_rejected PASSED\ntests/test_comprehensive.py::TestPolicyFilter::test_input_too_long PASSED\ntests/test_comprehensive.py::TestPolicyFilter::test_output_too_long PASSED\ntests/test_comprehensive.py::TestPolicyFilter::test_sensitive_field_masking_in_filter PASSED\n\n============================== 4 passed in 0.79s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Protocol Compatibility (#32)",
+      "test_pattern": "tests/test_comprehensive.py::TestProtocolCompatibility",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 6 items\n\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_task_start_mapped_to_invoke PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_chunk_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_stop_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_ping_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_legacy_fail_mapped PASSED\ntests/test_comprehensive.py::TestProtocolCompatibility::test_unknown_type_rejected PASSED\n\n============================== 6 passed in 0.81s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Version Negotiation (#33)",
+      "test_pattern": "tests/test_comprehensive.py::TestVersionNegotiation",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 3 items\n\ntests/test_comprehensive.py::TestVersionNegotiation::test_v1_accepted PASSED\ntests/test_comprehensive.py::TestVersionNegotiation::test_numeric_1_accepted PASSED\ntests/test_comprehensive.py::TestVersionNegotiation::test_v99_rejected PASSED\n\n============================== 3 passed in 0.75s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Fault Injection (#22)",
+      "test_pattern": "tests/test_comprehensive.py::TestFaultInjection",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 5 items\n\ntests/test_comprehensive.py::TestFaultInjection::test_delay_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_mid_stream_error_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_duplicate_token_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_bad_json_injection PASSED\ntests/test_comprehensive.py::TestFaultInjection::test_partial_disconnect_injection PASSED\n\n============================== 5 passed in 1.38s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Configuration (#15)",
+      "test_pattern": "tests/test_comprehensive.py::TestConfiguration",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestConfiguration::test_default_config_valid PASSED\ntests/test_comprehensive.py::TestConfiguration::test_config_with_provider PASSED\ntests/test_comprehensive.py::TestConfiguration::test_load_config_from_env PASSED\ntests/test_comprehensive.py::TestConfiguration::test_invalid_strategy_detected PASSED\n\n============================== 4 passed in 0.82s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Concurrent Session Isolation (#24)",
+      "test_pattern": "tests/test_comprehensive.py::TestConcurrentIsolation",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestConcurrentIsolation::test_independent_state_machines PASSED\ntests/test_comprehensive.py::TestConcurrentIsolation::test_independent_seq_checkers PASSED\ntests/test_comprehensive.py::TestConcurrentIsolation::test_cancel_does_not_affect_other_session PASSED\ntests/test_comprehensive.py::TestConcurrentIsolation::test_concurrent_invoke_isolation PASSED\n\n============================== 4 passed in 0.81s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "OpenTelemetry (#19)",
+      "test_pattern": "tests/test_comprehensive.py::TestOpenTelemetry",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 3 items\n\ntests/test_comprehensive.py::TestOpenTelemetry::test_all_required_spans_exist PASSED\ntests/test_comprehensive.py::TestOpenTelemetry::test_span_attributes_complete PASSED\ntests/test_comprehensive.py::TestOpenTelemetry::test_trace_propagation PASSED\n\n============================== 3 passed in 0.76s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Idempotency (#4)",
+      "test_pattern": "tests/test_comprehensive.py::TestIdempotency",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 4 items\n\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_invoke_rejected PASSED\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_invoke_terminal_reuses PASSED\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_cancel_ignored PASSED\ntests/test_comprehensive.py::TestIdempotency::test_duplicate_stream_end_ignored PASSED\n\n============================== 4 passed in 0.82s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Retry Mechanism (#3)",
+      "test_pattern": "tests/test_comprehensive.py::TestRetryMechanism",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 2 items\n\ntests/test_comprehensive.py::TestRetryMechanism::test_retry_on_recoverable_error PASSED\ntests/test_comprehensive.py::TestRetryMechanism::test_no_retry_on_non_recoverable PASSED\n\n============================== 2 passed in 0.81s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Integration Pipeline",
+      "test_pattern": "tests/test_comprehensive.py::TestIntegration",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 5 items\n\ntests/test_comprehensive.py::TestIntegration::test_full_invoke_pipeline PASSED\ntests/test_comprehensive.py::TestIntegration::test_cancel_pipeline PASSED\ntests/test_comprehensive.py::TestIntegration::test_heartbeat_pipeline PASSED\ntests/test_comprehensive.py::TestIntegration::test_bad_request_returns_error PASSED\ntests/test_comprehensive.py::TestIntegration::test_seq_error_returns_error PASSED\n\n============================== 5 passed in 0.95s ==============================\n",
+      "stderr": ""
+    },
+    {
+      "label": "Extended Integration (#20)",
+      "test_pattern": "tests/test_comprehensive.py::TestExtendedIntegration",
+      "passed": true,
+      "returncode": 0,
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.13.12, pytest-9.0.3, pluggy-1.5.0 -- D:\\conda1\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\tele\nplugins: anyio-4.10.0, asyncio-1.4.0, cov-7.1.0\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollecting ... collected 9 items\n\ntests/test_comprehensive.py::TestExtendedIntegration::test_cancel_during_streaming PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_already_cancelled_returns_error PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_security_auth_required PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_rate_limiting_rejects_excess PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_empty_request_rejected_in_pipeline PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_multi_provider_router_select PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_router_hash_select_stable PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_router_round_robin_select PASSED\ntests/test_comprehensive.py::TestExtendedIntegration::test_audit_records_invoke_and_end PASSED\n\n============================== 9 passed in 0.97s ==============================\n",
+      "stderr": ""
+    }
+  ]
+}

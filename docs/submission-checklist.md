@@ -1,133 +1,72 @@
 # 提交检查清单
 
-## 必做项
+## 目录结构
 
-### 协议与校验
-- [x] #1 协议Schema验证 — Envelope Pydantic 校验（version/type/payload），extra="forbid"，legacy 映射
-- [x] #2 错误码体系 — 27 个注册错误码，覆盖 gateway/provider/agent 三源，可恢复性标记
-- [x] #5 序列号顺序检查 — SeqChecker 按 corr_id 隔离，GAP/ROLLBACK/DUPLICATE 检测
-- [x] #6 终态后消息处理 — 状态机终态拦截 + GatewayApp 终态守卫
-- [x] #7 状态机 — 六状态（Idle/Invoked/Streaming/Done/Failed/Cancelled），12 条转换规则
+- [x] `app/` — 源代码（核心模块 + 适配器 + 数据模型）
+- [x] `config/` — 配置文件（.env.example）
+- [x] `docs/` — 文档（01 到 08 + submission-checklist）
+- [x] `evidence/` — 运行证据
+  - [x] `evidence/screenshots/`
+  - [x] `evidence/test-results/`
+  - [x] `evidence/provider-call/`
+  - [x] `evidence/audit/`
+  - [x] `evidence/performance/`
+  - [x] `evidence/extension-goals/`
+- [x] `scripts/` — 脚本（collect_evidence.py, perf_baseline.py, generate_report.py）
+- [x] `tests/` — 测试代码（test_comprehensive.py）
+- [x] `README.md`
+- [x] `requirements.txt`
 
-### 通信与流控
-- [x] #8 心跳 — HEARTBEAT 消息处理，last_seen 更新，IDLE 状态拒绝
-- [x] #9 取消传播 — CANCEL 触发状态机转换 + 幂等性注册 + ALREADY_CANCELLED 错误码
-- [x] #11 超时 — 四类超时（首token/token间隔/provider响应/总任务），TimeoutChecker
+## 协议核心
 
-### Provider 与模型
-- [x] #14 本地模型部署证据 — Ollama 适配器 + mock_server 集成验证，evidence/local-model-deployment.md
-- [x] #16 结构化日志 — StructuredLogger，7 必需字段（ts/level/session_id/corr_id/seq/event/duration）
-- [x] #18 追踪 — TraceContext + TraceCollector，corr_id 传播，span 链重建
-- [x] #21 模拟LLM服务器 — 独立 HTTP 服务器（mock_server.py），9 场景
-- [x] #36 单Provider LLM调用 — OpenAIProviderAdapter + AnthropicProviderAdapter + OllamaProviderAdapter，流式/非流式
+- [x] 统一信封 (Envelope) + Pydantic 严格校验
+- [x] 8 种消息类型 + payload 校验
+- [x] 6 状态状态机 + 终态不可逆
+- [x] 29 错误码 + 可恢复性标记
+- [x] Seq 单调递增校验
+- [x] Legacy 兼容（CSD_Stream_v0 映射）
+- [x] 双协议兼容（OpenAI / Anthropic）
 
-### 测试与工具
-- [x] #20 自动化测试 — 114 用例，覆盖 26 个测试类，通过率 100%
-- [x] #30 Agent入口点 — CLI Agent（cli_agent.py），支持 invoke/cancel/heartbeat/health/metrics/chat 模式
+## 双调用证据
 
-### 文档
-- [x] #34 文档质量 — 最终实验报告（08-final-report.md）、AI编码反思（07-ai-coding-reflection.md）、本检查清单
-- [x] #35 AI编码反思 — 完整记录 Prompt 策略、人工修改点、验证方式、经验总结
+- [x] DeepSeek 端到端验证（evidence/provider-call/）
+- [x] Mock Provider 测试覆盖
+- [x] OpenAI-compatible 适配器实现
+- [x] Anthropic-compatible 适配器实现（代码已完成，需 API key 验证）
+- [x] Ollama 本地模型适配器 + 部署说明
 
----
+## 可观测性
 
-## 运行命令
+- [x] 结构化 JSON 日志
+- [x] OpenTelemetry 追踪
+- [x] 指标采集（success/failure/cancel/timeout）
+- [x] 持久化审计（JSONL + 跨实例重载 + 查询 + 导出）
+- [x] 安全边界（API Key 认证 + Agent 注册 + 敏感字段屏蔽）
+- [x] 输入/输出策略过滤
 
-```bash
-# 运行测试
-python -m pytest tests/test_comprehensive.py -v
+## 文档完整性
 
-# 收集证据
-python scripts/collect_evidence.py
+- [x] 01-design.md — 系统设计说明
+- [x] 02-api.md — API 接口说明
+- [x] 03-deploy.md — 部署说明
+- [x] 04-testing.md — 测试说明
+- [x] 05-issues.md — 问题记录
+- [x] 06-protocol.md — 协议说明
+- [x] 07-ai-coding-reflection.md — AI 编程反思
+- [x] 08-final-report.md — 最终实验报告
+- [x] submission-checklist.md — 本检查清单
 
-# 性能基线
-python scripts/perf_baseline.py
+## 测试
 
-# 启动模拟服务器
-python -m app.mock_server --port 9000
+- [x] 136 测试用例，100% 通过
+- [x] 覆盖正常路径 + 边界场景
+- [x] 故障注入测试
+- [x] 并发隔离测试
+- [x] Multi-Agent 测试
 
-# CLI Agent
-python -m app.cli_agent invoke "hello" --model mock-model
-```
+## 已知声明
 
----
-
-## 扩展目标（终极）
-
-### #26 模型能力路由
-- [x] CapabilityRegistry — 能力声明注册、按能力/模型/任务类型查找
-- [x] CapabilityProfile — 声明能力标签、模型列表、任务类型、上下文长度、流式/工具/视觉/代码/推理支持
-- [x] best_match — 交集匹配 model ∩ task_type ∩ capabilities
-- [x] ProviderRouter capability 策略 — 基于 CapabilityRegistry 的智能选择 + 回退
-- [x] model_name/task_type 策略升级 — 利用 CapabilityRegistry 做匹配
-- [x] 8 个测试用例（注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退）
-
-### #27 持久化审计
-- [x] JSONL 文件写入 — 每次 record() 实时写入 JSONL 行
-- [x] 跨实例持久化 — 新实例启动时加载已有 JSONL 文件重建内存索引
-- [x] 灵活查询 — query() 支持 session_id/corr_id/event/时间范围组合过滤
-- [x] 导出 — export_to_file() 生成独立 JSON 证据文件
-- [x] 5 个测试用例（记录查询、持久化、跨实例重载、灵活查询、导出）
-
-### #37 MultiAgent
-- [x] AgentProfile — agent_id/name/roles/capabilities/endpoint/status/max_concurrent_tasks
-- [x] AgentRegistry — register/deregister/get，find_by_capability/find_by_role/find_available（排除 offline）
-- [x] DelegationRecord — 委派记录：source/target/task/pattern/status/result/timestamps
-- [x] MultiAgentManager — register_agent + handle_delegate + handle_response + get/list_delegations
-- [x] AGENT_DELEGATE / AGENT_RESPONSE 消息类型 + payload 校验
-- [x] AGENT_NOT_FOUND / DELEGATION_FAILED 错误码
-- [x] GatewayApp 集成 — handle_envelope 处理 AGENT_DELEGATE/AGENT_RESPONSE
-- [x] REST 端点 — GET /agents, GET /agents/{id}, POST /agents/register, GET /delegations
-- [x] 8 个测试用例（注册查找、能力/角色过滤、注销、offline 排除、不存在的 agent、成功委派、响应更新）
-
----
-
-## 文件清单
-
-```
-app/
-  main.py                 # FastAPI 入口 + GatewayApp + SessionStore
-  cli_agent.py            # CLI Agent 入口
-  mock_server.py          # 独立 HTTP Mock 服务器
-  core/
-    __init__.py           # 导出所有公共组件
-    config.py             # GatewayConfig + ProviderEntry
-    errors.py             # 29 错误码 + ErrorCodeDef + 查询 API
-    state_machine.py      # 六状态状态机引擎
-    seq_checker.py        # 序号校验器
-    timeout.py            # 四类超时检查
-    tracing.py            # OTel 追踪 + TraceCollector
-    logger.py             # 结构化日志
-    flow_control.py       # BoundedQueue + RateLimiter
-    idempotency.py        # 幂等性管理器
-    retry.py              # 退避重试
-    metrics.py            # 指标收集
-    security.py           # API Key 认证 + agent 注册
-    policy_filter.py      # 内容过滤 + 敏感屏蔽
-    audit.py              # 持久化审计日志（JSONL + 跨实例重载）
-    multi_agent.py        # Multi-Agent 注册 + 委派 + 协调
-  adapters/
-    provider.py           # ProviderAdapter 基类
-    router.py             # 多 Provider 路由
-    mock_provider.py      # Mock 适配器 (9 场景)
-    openai_provider.py    # OpenAI 兼容适配器
-    anthropic_provider.py # Anthropic 适配器
-    ollama_provider.py    # Ollama 本地适配器
-    real_provider.py      # 通用 HTTP 适配器
-  models/
-    envelope.py           # Envelope + MessageType + 协议校验
-    state.py              # SessionState 枚举
-tests/
-  test_comprehensive.py   # 114 测试用例
-docs/
-  07-ai-coding-reflection.md
-  08-final-report.md
-  submission-checklist.md
-scripts/
-  collect_evidence.py     # 证据收集脚本
-  perf_baseline.py        # 性能基线脚本
-evidence/
-  local-model-deployment.md
-config/
-  .env.example            # 环境变量模板
-```
+- Anthropic 适配器未做真实 API 调用验证（需有效 API key）
+- Ollama 本地模型需要用户自行部署
+- 性能基线基于 Mock Provider，真实 Provider 延迟受网络影响
+- MultiAgent 仅实现 single 协调模式，fan-out/fan-in/pipeline 未实现

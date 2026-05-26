@@ -1,0 +1,19 @@
+{
+  "test": "deepseek-gateway-e2e",
+  "timestamp": "2026-05-26T19:15:34.480422",
+  "results": {
+    "first_token_latency": 1.117,
+    "total_duration": 1.261,
+    "stream_end_reason": "stop",
+    "stream_end_tokens": 7,
+    "chunk_count": 7,
+    "stream_end_received": true,
+    "error": null,
+    "session_state": "Done",
+    "session_state_is_done": true,
+    "heartbeat_on_done": "{'version': <ProtocolVersion.V1: 'v1'>, 'type': <MessageType.HEARTBEAT: 'HEARTBEAT'>, 'session_id': 'e2e-test-session-001', 'corr_id': 'e2e-test-corr-002', 'timestamp': '2026-05-26T11:15:34.480385+00:00', 'seq': None, 'payload': {'status': 'alive', 'last_seen': 1779794134.480261}}",
+    "overall_passed": true
+  },
+  "response_preview": "Hello from A2A Gateway!",
+  "overall_passed": true
+}
