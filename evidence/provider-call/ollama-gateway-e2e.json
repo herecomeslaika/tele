@@ -1,0 +1,18 @@
+{
+  "test": "ollama-gateway-e2e",
+  "timestamp": "2026-06-09T17:11:21",
+  "provider": "ollama",
+  "model": "qwen2.5:0.5b",
+  "endpoint": "http://localhost:11434/v1",
+  "results": {
+    "first_token_latency_ms": 1425.92,
+    "total_duration_ms": 1702.04,
+    "stream_end_reason": "stop",
+    "stream_end_tokens": 32,
+    "chunk_count": 32,
+    "stream_end_received": true,
+    "error": null,
+    "full_response": "Hello from Ollama local model! I'm here to help answer your questions and provide insights about the world of AI. How can I assist you today?"
+  },
+  "overall_passed": true
+}

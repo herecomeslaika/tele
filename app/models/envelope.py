@@ -116,8 +116,8 @@ class Envelope(BaseModel):
                 raise ValueError("ERROR payload must contain 'error_code'")
 
         elif t == MessageType.AGENT_DELEGATE:
-            if "target_agent" not in p:
-                raise ValueError("AGENT_DELEGATE payload must contain 'target_agent'")
+            if "target_agent" not in p and "target_agents" not in p:
+                raise ValueError("AGENT_DELEGATE payload must contain 'target_agent' or 'target_agents'")
             if "task" not in p:
                 raise ValueError("AGENT_DELEGATE payload must contain 'task'")
 

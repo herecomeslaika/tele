@@ -533,8 +533,14 @@ class GatewayApp:
             yield envelope.model_dump()
 
         elif envelope.type == MessageType.AGENT_DELEGATE:
-            async for resp in self.multi_agent.handle_delegate(envelope, self.router):
-                yield resp
+            # Check if this is a fan-out request
+            pattern = envelope.payload.get("pattern", "single")
+            if pattern == "fan-out":
+                async for resp in self.multi_agent.handle_fan_out(envelope, self.router):
+                    yield resp
+            else:
+                async for resp in self.multi_agent.handle_delegate(envelope, self.router):
+                    yield resp
 
         elif envelope.type == MessageType.AGENT_RESPONSE:
             record = self.multi_agent.handle_response(envelope)
@@ -770,9 +776,44 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
                 "pattern": d.pattern,
                 "status": d.status,
                 "result": d.result,
+                "sub_delegations": d.sub_delegations,
             }
             for d in delegations
         ])
+
+    @app.post("/delegate/fan-out")
+    async def fan_out_endpoint(request: Request):
+        """Fan-out delegation to multiple agents concurrently."""
+        try:
+            raw = await request.json()
+        except Exception:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+        target_agents = raw.get("target_agents", [])
+        task = raw.get("task", "")
+        session_id = raw.get("session_id", f"fanout-{uuid.uuid4().hex[:8]}")
+        corr_id = raw.get("corr_id", f"corr-{uuid.uuid4().hex[:8]}")
+
+        envelope = Envelope(
+            type=MessageType.AGENT_DELEGATE,
+            session_id=session_id,
+            corr_id=corr_id,
+            payload={
+                "target_agents": target_agents,
+                "task": task,
+                "pattern": "fan-out",
+                "source_agent": raw.get("source_agent", "api-client"),
+                "model": raw.get("model", "mock-model"),
+            },
+        )
+
+        results = []
+        async for chunk in gateway.multi_agent.handle_fan_out(envelope, gateway.router):
+            results.append(chunk)
+
+        if len(results) == 1:
+            return JSONResponse(content=results[0])
+        return JSONResponse(content={"results": results})
 
     return app
 

@@ -166,7 +166,22 @@ curl -X POST http://localhost:8000/agents/register \
   }'
 ```
 
-### 2.4 GET /delegations — 列出所有委派记录
+### 2.4 POST /delegate/fan-out — 并发委派多个 Agent
+
+```bash
+curl -X POST http://localhost:8000/delegate/fan-out \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_agents": ["agent-001", "agent-002"],
+    "task": "翻译以下文本为英文：你好世界",
+    "source_agent": "agent-000",
+    "model": "mock-model"
+  }'
+```
+
+**响应**：包含 `sub_count` 和聚合 `result` 的 AGENT_RESPONSE。
+
+### 2.5 GET /delegations — 列出所有委派记录
 
 ```bash
 curl http://localhost:8000/delegations
@@ -180,6 +195,8 @@ curl http://localhost:8000/delegations
 
 通过 WebSocket 或 /invoke 端点发送：
 
+**单对单委派**：
+
 ```json
 {
   "version": "v1",
@@ -190,6 +207,23 @@ curl http://localhost:8000/delegations
     "target_agent": "agent-001",
     "task": "翻译以下文本为英文：你好世界",
     "pattern": "single",
+    "source_agent": "agent-000"
+  }
+}
+```
+
+**Fan-out 并发委派**：
+
+```json
+{
+  "version": "v1",
+  "type": "AGENT_DELEGATE",
+  "session_id": "sess-011",
+  "corr_id": "corr-011",
+  "payload": {
+    "target_agents": ["agent-001", "agent-002"],
+    "task": "审查以下代码的安全漏洞",
+    "pattern": "fan-out",
     "source_agent": "agent-000"
   }
 }

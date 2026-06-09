@@ -4,7 +4,7 @@
 
 - **框架**: pytest + pytest-asyncio
 - **测试文件**: `tests/test_comprehensive.py`
-- **总用例数**: 136
+- **总用例数**: 141
 - **通过率**: 100%
 
 ## 2. 运行测试
@@ -54,6 +54,7 @@ python -m pytest tests/test_comprehensive.py::TestStateMachine::test_normal_flow
 | TestCapabilityRouting | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
 | TestRuntimeRouting | 3 | runtime 路由选择、回退、能力回退 |
 | TestMultiAgent | 8 | 注册查找、能力/角色过滤、注销、offline 排除、委派、响应更新 |
+| TestFanOutDelegation | 5 | 空 targets、缺失 agent、offline agent、成功并发委派、无 router 降级 |
 
 ---
 

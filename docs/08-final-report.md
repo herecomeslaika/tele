@@ -111,8 +111,9 @@
 | Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
 | Runtime Routing | 3 | runtime 选择、回退、能力回退 |
 | MultiAgent | 8 | 注册查找、能力/角色过滤、注销、offline排除、委派、响应更新 |
+| FanOut Delegation | 5 | 空 targets、缺失 agent、offline agent、成功并发委派、无 router 降级 |
 
-**总计**: 136 用例，通过率 100%
+**总计**: 141 用例，通过率 100%
 
 ### 3.2 边界场景验证
 - 终态后迟到 STREAM_CHUNK 被拒绝并记录 warning 日志
@@ -174,11 +175,12 @@ python scripts/perf_baseline.py
 - 代码位置：`app/core/multi_agent.py`
 - 关键特性：
   - AgentRegistry：register/deregister/get/find_by_capability/find_by_role/find_available（排除 offline agent）
-  - MultiAgentManager：register_agent + handle_delegate（验证 target → 创建委派 → 路由到 Provider → 返回 AGENT_RESPONSE）+ handle_response（更新委派记录）
+  - MultiAgentManager：register_agent + handle_delegate（验证 target → 创建委派 → 路由到 Provider → 返回 AGENT_RESPONSE）+ handle_response（更新委派记录）+ handle_fan_out（并发委派多个 Agent → 聚合结果）
   - AGENT_DELEGATE / AGENT_RESPONSE 消息类型 + payload 校验
   - AGENT_NOT_FOUND / DELEGATION_FAILED 错误码
-  - GatewayApp handle_envelope 集成 + REST 端点（/agents, /agents/{id}, /agents/register, /delegations）
-- 测试覆盖：8 用例
+  - GatewayApp handle_envelope 集成 + REST 端点（/agents, /agents/{id}, /agents/register, /delegations, /delegate/fan-out）
+  - 协调模式：single（单对单委派）+ fan-out（一对多并发委派，聚合结果）
+- 测试覆盖：8 用例（single）+ 5 用例（fan-out）
 
 ---
 
@@ -246,10 +248,11 @@ Gateway 通过统一 ProviderAdapter 接口兼容 OpenAI-compatible 与 Anthropi
 | Capability Routing | 8 | 注册查找、能力/模型/任务过滤、交集匹配、路由集成、回退 |
 | Runtime Routing | 3 | runtime 选择、回退、能力回退 |
 | MultiAgent | 8 | 注册查找、能力/角色过滤、注销、offline排除、委派、响应更新 |
+| FanOut Delegation | 5 | 空 targets、缺失 agent、offline agent、成功并发委派、无 router 降级 |
 | Integration | 5 | full invoke、cancel、heartbeat、bad_request、seq error |
 | Extended Integration | 9 | cancel during stream、ALREADY_CANCELLED、auth、rate limit、empty request、router priority/hash/round_robin、audit |
 
-**总计**: 136 用例，通过率 100%
+**总计**: 141 用例，通过率 100%
 
 ---
 

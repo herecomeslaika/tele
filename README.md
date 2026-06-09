@@ -60,7 +60,7 @@ app/
 config/
   .env.example            # 环境变量模板
 tests/
-  test_comprehensive.py   # 136 测试用例
+  test_comprehensive.py   # 141 测试用例
 docs/
   01-design.md            # 设计说明
   02-api.md               # API 示例
@@ -92,4 +92,4 @@ scripts/
 | 增强 | 10,12,15,17,19,22,23,24,31,32,33 |
 | 终极 | 13,25,26,27,28,29,37 |
 
-共 37/37 目标已完成，136 测试用例 100% 通过。
+共 37/37 目标已完成，141 测试用例 100% 通过。

@@ -56,9 +56,9 @@
 - 真实 Provider 延迟受网络和负载影响，实际数据可能有较大差异
 
 ### 2.4 MultiAgent 协调模式
-- 当前仅实现 single（单对单委派）模式
-- fan-out/fan-in/pipeline 协调模式尚未实现
-- DelegationRecord 中 pattern 字段已预留，但未实现分发逻辑
+- fan-out（一对多并发委派）已实现：`handle_fan_out` + `/delegate/fan-out` 端点 + 5 测试用例
+- fan-in / pipeline 协调模式尚未实现
+- DelegationRecord 中 pattern 字段已预留，但未实现 fan-in/pipeline 分发逻辑
 
 ---
 

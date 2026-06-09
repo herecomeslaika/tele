@@ -64,6 +64,22 @@ Agent 请求取消正在执行的任务。
 
 **幂等性**: 重复 CANCEL 返回 ALREADY_CANCELLED 而非报错。
 
+**本地取消 vs 上游取消**:
+
+Gateway 实现的是**本地取消**（local cancel），而非上游取消（upstream cancel）。具体差异：
+
+| 维度 | 本地取消（当前实现） | 上游取消（未实现） |
+|------|---------------------|-------------------|
+| 机制 | Gateway 停止读取 Provider 流，将 session 状态置为 Cancelled | Gateway 向 Provider 发送取消信号，Provider 中断生成 |
+| Provider 行为 | Provider 继续生成 token 直到自然结束，但 Gateway 不再转发 | Provider 立即停止生成，释放计算资源 |
+| 资源释放 | Provider 侧资源在自然结束后释放 | Provider 侧资源立即释放 |
+| 适用场景 | OpenAI/Anthropic/Ollama 等 API 不支持请求级取消 | 仅当 Provider API 支持 cancel 端点时可行 |
+| 实现复杂度 | 低（仅修改 Gateway 状态） | 高（需要 Provider 侧配合） |
+
+当前实现中，`handle_cancel` 将 `corr_id` 对应的 session 状态置为 `Cancelled`，`handle_invoke` 的流式循环在每次 chunk 前检查 `sm.state == SessionState.CANCELLED`，若已取消则 `break` 退出循环。后续到达的 Provider token 被丢弃，不再转发给 Agent。
+
+Ollama 本地模型支持通过 `/api/abort` 端点取消正在进行的生成，但当前 Gateway 未实现此上游取消路径。如需实现，可在 `OllamaProviderAdapter` 中添加 `abort()` 方法，在 `handle_cancel` 时调用。
+
 ### 2.5 HEARTBEAT — 心跳
 
 Agent 或 Gateway 发送心跳保活。
@@ -95,7 +111,8 @@ Agent 将任务委派给另一个 Agent。
 - `task` (str) — 委派任务描述
 
 **Payload 可选字段**:
-- `pattern` (str) — 协调模式（"single" / "fan-out" / "fan-in" / "pipeline"）
+- `pattern` (str) — 协调模式（"single" / "fan-out"）
+- `target_agents` (list[str]) — fan-out 模式下的多个目标 Agent ID（替代 `target_agent`）
 - `source_agent` (str) — 源 Agent ID
 - `context` (dict) — 上下文数据
 

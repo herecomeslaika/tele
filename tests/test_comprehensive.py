@@ -1811,6 +1811,132 @@ class TestMultiAgent:
         assert record.completed_at is not None
 
 
+class TestFanOutDelegation:
+    """Test fan-out Multi-Agent coordination (#37)."""
+
+    @pytest.mark.asyncio
+    async def test_fan_out_empty_targets(self):
+        manager = MultiAgentManager()
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_DELEGATE,
+            session_id="s1", corr_id="c1", seq=1,
+            payload={"target_agents": [], "task": "do something", "pattern": "fan-out"},
+        )
+        responses = []
+        async for resp in manager.handle_fan_out(envelope):
+            responses.append(resp)
+
+        assert len(responses) == 1
+        assert responses[0]["type"] == "ERROR"
+        assert responses[0]["payload"]["error_code"] == "BAD_REQUEST"
+
+    @pytest.mark.asyncio
+    async def test_fan_out_missing_agent(self):
+        manager = MultiAgentManager()
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_DELEGATE,
+            session_id="s1", corr_id="c1", seq=1,
+            payload={"target_agents": ["ghost"], "task": "do something", "pattern": "fan-out"},
+        )
+        responses = []
+        async for resp in manager.handle_fan_out(envelope):
+            responses.append(resp)
+
+        assert len(responses) == 1
+        assert responses[0]["type"] == "ERROR"
+        assert responses[0]["payload"]["error_code"] == "AGENT_NOT_FOUND"
+
+    @pytest.mark.asyncio
+    async def test_fan_out_offline_agent(self):
+        manager = MultiAgentManager()
+        manager.register_agent(AgentProfile(
+            agent_id="offline-1", name="Offline", status="offline",
+        ))
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_DELEGATE,
+            session_id="s1", corr_id="c1", seq=1,
+            payload={"target_agents": ["offline-1"], "task": "do something", "pattern": "fan-out"},
+        )
+        responses = []
+        async for resp in manager.handle_fan_out(envelope):
+            responses.append(resp)
+
+        assert len(responses) == 1
+        assert responses[0]["type"] == "ERROR"
+        assert responses[0]["payload"]["error_code"] == "DELEGATION_FAILED"
+
+    @pytest.mark.asyncio
+    async def test_fan_out_successful(self):
+        from app.adapters.mock_provider import MockProviderAdapter, MockScenario
+        from app.adapters.router import ProviderRouter
+
+        manager = MultiAgentManager()
+        manager.register_agent(AgentProfile(
+            agent_id="worker-1", name="Coder", capabilities=["code"], status="online",
+        ))
+        manager.register_agent(AgentProfile(
+            agent_id="worker-2", name="Reviewer", capabilities=["review"], status="online",
+        ))
+
+        router = ProviderRouter(strategy="priority")
+        router.add_route("mock", MockProviderAdapter(scenario=MockScenario.NORMAL))
+
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_DELEGATE,
+            session_id="s1", corr_id="c1", seq=1,
+            payload={
+                "target_agents": ["worker-1", "worker-2"],
+                "task": "review this code",
+                "pattern": "fan-out",
+                "model": "mock-model",
+            },
+        )
+        responses = []
+        async for resp in manager.handle_fan_out(envelope, router):
+            responses.append(resp)
+
+        assert len(responses) == 1
+        assert responses[0]["type"] == "AGENT_RESPONSE"
+        assert responses[0]["payload"]["pattern"] == "fan-out"
+        assert responses[0]["payload"]["sub_count"] == 2
+        assert responses[0]["payload"]["status"] in ("completed", "partial")
+
+        # Verify delegation record
+        del_id = responses[0]["payload"]["delegation_id"]
+        record = manager.get_delegation(del_id)
+        assert record is not None
+        assert record.pattern == "fan-out"
+        assert len(record.sub_delegations) == 2
+
+    @pytest.mark.asyncio
+    async def test_fan_out_no_router(self):
+        """Fan-out without router completes with task text as result."""
+        manager = MultiAgentManager()
+        manager.register_agent(AgentProfile(
+            agent_id="worker-1", name="Coder", status="online",
+        ))
+        manager.register_agent(AgentProfile(
+            agent_id="worker-2", name="Reviewer", status="online",
+        ))
+
+        envelope = Envelope(
+            version="v1", type=MessageType.AGENT_DELEGATE,
+            session_id="s1", corr_id="c1", seq=1,
+            payload={
+                "target_agents": ["worker-1", "worker-2"],
+                "task": "analyze data",
+                "pattern": "fan-out",
+            },
+        )
+        responses = []
+        async for resp in manager.handle_fan_out(envelope):
+            responses.append(resp)
+
+        assert len(responses) == 1
+        assert responses[0]["type"] == "AGENT_RESPONSE"
+        assert responses[0]["payload"]["sub_count"] == 2
+
+
 # ===========================================================================
 # #25 — Multi-Runtime Routing Tests
 # ===========================================================================
