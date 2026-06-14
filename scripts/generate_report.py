@@ -57,14 +57,14 @@ def main():
     test_summary = parse_test_summary(test_result["stdout"])
 
     # 2. Collect error codes
-    from app.core.errors import ERROR_REGISTRY
-    error_codes = [(c.code, c.source, c.recoverable) for c in ERROR_REGISTRY.values()]
+    from app.core.errors import all_error_codes
+    error_codes = [(c.code, c.source, c.recoverable) for c in all_error_codes().values()]
 
     # 3. Collect metrics
-    from app.core.metrics import MetricsCollector
-    mc = MetricsCollector()
-    mc.record_success(0.5)
-    mc.record_failure("TIMEOUT")
+    from app.core.metrics import Metrics
+    mc = Metrics()
+    mc.record_success(first_token_latency=0.5, total_duration=1.0)
+    mc.record_failure()
     mc.record_cancel()
     mc.record_timeout()
 
@@ -128,7 +128,7 @@ def main():
     lines.append(f"| 失败数 | {mc.failure_count} |")
     lines.append(f"| 取消数 | {mc.cancel_count} |")
     lines.append(f"| 超时数 | {mc.timeout_count} |")
-    lines.append(f"| 总请求数 | {mc.total_count} |")
+    lines.append(f"| 总请求数 | {mc.request_count} |")
     lines.append(f"")
 
     # Performance baseline

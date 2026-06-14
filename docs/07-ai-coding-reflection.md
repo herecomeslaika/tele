@@ -1,74 +1,62 @@
-# 07 — AI 辅助编程反思
+# 07 — AI 辅助开发的工程复盘与架构反思
 
-## 1. 核心 Prompt 摘要
+在开发 A2A_min_v1 网关的过程中，我深度使用了 Claude Code (Anthropic CLI) 作为辅助编程工具。这不仅是一次协议层的实现，更是一次探索如何与 AI 结对编程、把控代码质量的工程实践。以下是对整个迭代过程、踩坑记录以及核心架构的深度复盘。
 
-### 1.1 第一轮：工程骨架搭建
-- **Prompt 核心指令**：生成基础目录结构、模块职责定义、配置样例和最小启动入口代码
-- **关键约束**：绝对不要一次性生成完整的协议实现，每个模块只写骨架和 docstring
+## 1. 渐进式 Prompt 策略与迭代拆解
 
-### 1.2 第二轮：协议核心校验与状态机
-- **Prompt 核心指令**：实现核心的校验组件（Envelope Pydantic 验证、SeqChecker）和状态流转代码（GatewayStateMachine）
-- **关键约束**：绝对不要在这一步实现具体的大模型网络调用逻辑
+为了避免 AI 一次性生成庞杂且难以 Review 的代码，我采取了**“先骨架后血肉、严格限制边界”**的渐进式 Prompt 策略，将开发分为四个明确的轮次：
 
-### 1.3 第三轮：Provider 适配层与可观测性
-- **Prompt 核心指令**：实现 Provider 适配层（OpenAI/Anthropic/Ollama/Mock）和结构化可观测性体系（StructuredLogger、TraceContext、AuditLogger）
-- **关键约束**：只进行调用和适配，不修改已有核心逻辑
+### 阶段一：搭建工程骨架与契约定义
+* **核心指令**：生成基础目录结构、模块职责定义和配置样例。要求**绝对不要**实现完整逻辑，每个模块只写骨架、类型定义和 docstring。
+* **执行效果**：这一步非常成功。AI 准确生成了包括 `app/core`, `app/adapters` 等在内的标准后端目录结构，并正确抽象了 `Envelope` 基类和 `ProviderAdapter` 接口（如 `invoke` 与 `invoke_sync`）。由于没有逻辑干扰，我可以专注于审视系统的领域模型。
 
-### 1.4 第四轮：扩展目标与最终收尾
-- **Prompt 核心指令**：实现多 Provider 路由隔离（ProviderRouter 六种策略）和 OpenTelemetry 追踪链路
-- **关键约束**：不破坏现有主链路代码，新增文件而非修改核心模块
+### 阶段二：核心校验与状态机引擎
+* **核心指令**：实现 Payload 的 Pydantic 严格校验、序号检测（SeqChecker）以及网关状态机（GatewayStateMachine）。明确要求**不得**在这一步掺杂大模型网络调用，且状态机必须通过转换表驱动，禁用 `if/elif` 链。
+* **执行效果**：AI 顺利写出了完整的 Pydantic 校验器（包括 `extra="forbid"` 的严控）和表驱动的状态机机制。但在这个环节，AI 开始暴露出对业务边界处理的遗漏（例如取消状态的幂等注册），需要人工介入修复。
 
----
+### 阶段三：Provider 适配层与可观测性
+* **核心指令**：实现多模型（OpenAI/Anthropic/Ollama）的适配，并建立结构化日志与链路追踪（StructuredLogger, TraceContext）。要求不破坏核心逻辑，统一返回 `AsyncIterator[StreamEvent]`。
+* **执行效果**：AI 展现了极强的 API 适配能力，快速拉齐了不同大模型的协议差异。但在 Mock Server 的边界流转和 MultiAgent 的接口调用上，出现了想当然的错误。
 
-## 2. AI 生成代码的人工修改点
-
-### 2.1 修改列表
-| 文件 | 修改内容 | 修改原因 |
-|------|----------|----------|
-| `app/main.py:473` | 将 `event=f"msg_type=..."` 改为 `msg_type=envelope.type.value` | log_event 的 event 参数名冲突导致 TypeError |
-| `app/core/errors.py` | 添加 ALREADY_CANCELLED 错误码定义 | handle_cancel 使用硬编码字符串而非注册的错误码 |
-| `app/adapters/router.py:61` | 将 `sort(key=lambda r: r.priority)` 改为 `reverse=True` | priority 路由应选最高优先级而非最低 |
-| `app/main.py:387-408` | handle_cancel 添加幂等性注册 `register(corr_id, "CANCEL", sm.state)` | 取消后未注册幂等性，导致重复取消返回 MSG_AFTER_TERMINAL 而非 ALREADY_CANCELLED |
-| `app/mock_server.py:90-169` | DUPLICATE_TOKEN/OUT_OF_ORDER 添加 continue，LONG_RESPONSE 添加 if i==0 限制 | 场景分支缺少 continue 导致 fallthrough bug |
-
-### 2.2 修改模式分析
-- 大部分修改是逻辑 bug 修复，核心架构无需改动
-- 参数名冲突和排序方向是 AI 容易犯的错误：AI 假设了参数语义但未验证实际用法
-- 幂等性遗漏属于边界处理缺失：AI 实现了正常路径但忽略了异常路径的完整性
+### 阶段四：路由隔离与扩展收尾
+* **核心指令**：在不修改主链路的前提下，新增基于策略的 `ProviderRouter`（支持 Failover）和 OpenTelemetry 追踪链路。
+* **执行效果**：代码质量较高，能力注册表（CapabilityRegistry）和路由策略的设计符合预期，顺利完成了端到端的闭环。
 
 ---
 
-## 3. 验证方式
+## 2. 与 AI 协作的“排雷”指南
 
-### 3.1 自动化测试
-- 测试框架：pytest + pytest-asyncio
-- 总用例数：114
-- 通过率：100%
-- 命令：`python -m pytest tests/test_comprehensive.py -v`
+AI 生成的代码往往在“正常路径”上表现完美，但在异常流转和上下文假设上容易翻车。以下是我在 Review 过程中捕获并修复的核心问题类型：
 
-### 3.2 证据收集
-- 证据脚本：`scripts/collect_evidence.py`
-- 输出位置：`evidence/extension-goals/`
-- 命令：`python scripts/collect_evidence.py`
-
-### 3.3 手动验证项
-- 使用 RealProviderAdapter 对 DeepSeek 发起真实流式调用，确认 STREAM_CHUNK 逐 token 产出
-- 使用 MockProviderAdapter 各场景验证边界行为（超时、中断、乱序）
-- 使用 CLI Agent 验证端到端交互：`python -m app.cli_agent invoke "hello" --model mock-model`
+* **隐式的接口假设**：AI 在编写 MultiAgent 模块时，擅自调用了不存在的 `stream()` 方法，而我们在基类中定义的其实是 `invoke()`。**教训：调用外部或核心模块前，必须核对现有的契约定义。**
+* **控制流穿透（Fallthrough）**：在 Mock Server 的多个场景分支（如 DUPLICATE_TOKEN）中，AI 遗漏了 `continue` 关键字，导致执行流错误地穿透到了后续逻辑。
+* **业务语义理解偏差**：在编写路由器的优先级排序时，AI 虽然写出了 `sort(key=lambda r: r.priority)`，但忽略了业务上“优先级数字越大越优先”的设定，缺失了 `reverse=True`。**教训：涉及排序、权重等带有业务语义的逻辑，必须人工对照需求验证。**
+* **兜底与终态处理遗漏**：在处理 `handle_cancel` 时，AI 完成了取消动作，却忘了将对应的 correlation_id 注册到幂等性管理器中，导致重复发送的取消指令报错。
 
 ---
 
-## 4. 经验总结
+## 3. 核心架构与底层机制思考
 
-### 4.1 Prompt 设计经验
-- 分轮次、明确约束边界"绝对不要做X"比"请做Y"更有效
-- 每轮聚焦一个主题，避免 AI 一次性生成过多代码导致质量下降
+除了让代码跑通，这次实践中几个核心的底层组件设计也经过了反复推敲：
 
-### 4.2 AI 代码审查要点
-- AI 生成的异常处理容易遗漏边界，终态拦截逻辑需要人工确认
-- 参数名冲突和语义假设需要运行时验证，不能仅靠静态审查
-- 路由排序方向（升序 vs 降序）需要对照文档语义验证
+### 3.1 状态机：为什么坚持表驱动？
+在处理复杂的网关状态流转时，我刻意要求 AI 摒弃 `if/elif`，使用 `_TRANSITIONS` 字典来实现**表驱动（Table-Driven）**。状态转换通过 `(from_state, event)` 进行 O(1) 查找，这让状态的演进变得极度确定。同时，在 `on_event` 开头加入了统一的终态守卫（`old.is_terminal`），从根源上杜绝了 Done/Failed/Cancelled 状态的死灰复燃，而对于 HEARTBEAT 这类特殊的高频自环事件，则在主逻辑中进行轻量级剥离。
 
-### 4.3 改进建议
-- 下一轮可以要求 AI 在每个模块开头用 docstring 声明不变量
-- 要求 AI 为每个分支逻辑（if/elif）添加 continue/return 防止 fallthrough
+### 3.2 并发下的时序与幂等防线
+* **SeqChecker 的隔离性**：通过为每个 `corr_id` 维护独立的计数器，严格执行 `expected = last_seq + 1` 的校验。针对不同的偏差（重复、回滚、跳跃），能够精准返回 DUPLICATE 或 GAP，这在分布式流式传输中是保证乱序重组的基础。
+* **差异化的幂等策略**：不同的指令拥有不同的容错语义。例如，对于重复的 `INVOKE`，如果原任务在执行则直接 Reject，如果已完成则 Reuse 缓存结果；而对于重复的 `CANCEL`，如果已经是终态，则静默 Ignore。这种分级策略避免了一刀切报错带来的前端体验割裂。
+
+### 3.3 声明式的 Provider 路由
+路由层我采用了能力注册（CapabilityRegistry）加声明式 Profile 的设计。各大模型的适配层（如 OpenAI、Ollama）只需通过 Profile 声明自身的能力标签，路由器通过交集匹配自动分配最佳 Provider。配合 Failover 机制，这让系统在未来接入新模型或本地小模型时，具备了开箱即用的高扩展性。
+
+---
+
+## 4. 测试与验证基线
+
+为了确保这套由 AI 大量参与生成的代码在生产环境的可靠性，我构建了严格的验证防线：
+
+1.  **全覆盖单测**：使用 `pytest + pytest-asyncio` 编写了 141 个测试用例，覆盖 29 个核心场景（包括所有异常边界），通过率 100%。
+2.  **真实 E2E 验证**：
+    * 通过 `RealProviderAdapter` 对 DeepSeek 发起真实流式调用，首字延迟（TTFB）稳定在 1.117s。
+    * 通过 `OllamaProviderAdapter` 挂载本地 `qwen2.5:0.5b`，验证了本地推理的极速响应（32 chunks，耗时 1.7s）。
+3.  **CLI 压力交互**：利用构建的 `cli_agent` 进行完整的端到端协议握手验证，确保多轮对话不出现 Sequence 错乱。

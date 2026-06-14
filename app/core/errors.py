@@ -183,15 +183,6 @@ ALREADY_CANCELLED = _reg(ErrorCodeDef(
     description="任务已取消，无需重复取消",
 ))
 
-ALREADY_CANCELLED = _reg(ErrorCodeDef(
-    code="ALREADY_CANCELLED",
-    source="gateway",
-    trigger="CANCEL received for a task already in Cancelled state",
-    recoverable=False,
-    retry_recommended=False,
-    description="任务已取消，无需重复取消",
-))
-
 # ---- TERMINAL STATE family ----
 MSG_AFTER_TERMINAL = _reg(ErrorCodeDef(
     code="MSG_AFTER_TERMINAL",

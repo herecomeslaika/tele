@@ -4,33 +4,87 @@
 
 ### 1.1 POST /invoke — 同步调用
 
-发送 INVOKE 消息，等待完整响应返回。
+发送 INVOKE 消息，等待完整响应返回（非流式）。
 
-**请求**：
-```bash
-curl -X POST http://localhost:8000/invoke \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -H "X-Agent-ID: your-agent-id" \
-  -d '{
-    "version": "v1",
-    "type": "INVOKE",
-    "session_id": "sess-001",
-    "corr_id": "corr-001",
-    "payload": {
-      "prompt": "你好，请介绍一下自己",
-      "model": "deepseek-chat"
-    }
-  }'
+**请求头**：
+
+| 头部 | 必需 | 说明 |
+|------|------|------|
+| Content-Type | 是 | application/json |
+| X-API-Key | 安全开启时 | API 认证密钥 |
+| X-Agent-ID | 安全开启时 | Agent 身份标识 |
+
+**请求体**（A2A_min_v1 统一信封）：
+
+```json
+{
+  "version": "v1",
+  "type": "INVOKE",
+  "session_id": "sess-001",
+  "corr_id": "corr-001",
+  "payload": {
+    "prompt": "你好，请介绍一下自己",
+    "model": "deepseek-chat",
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "stream": false,
+    "task_type": "chat"
+  }
+}
 ```
 
+**INVOKE Payload 字段**：
+
+| 字段 | 类型 | 必需 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| prompt | string | 与 messages 二选一 | — | 文本提示 |
+| messages | array | 与 prompt 二选一 | — | 对话历史 `[{role, content}]` |
+| model | string | 是 | — | 目标模型名称 |
+| temperature | float | 否 | 0.7 | 采样温度 |
+| max_tokens | int | 否 | 2048 | 最大输出 token 数 |
+| stream | bool | 否 | true | 是否流式（/invoke 端点忽略此字段） |
+| task_type | string | 否 | — | 任务类型，用于能力路由 |
+
 **响应**：包含完整 chunks 数组的 JSON。
+
+成功时返回所有 STREAM_CHUNK + STREAM_END 的集合：
+
+```json
+{
+  "chunks": [
+    {"version": "v1", "type": "STREAM_CHUNK", "session_id": "sess-001", "corr_id": "corr-001", "seq": 1, "payload": {"content": "你"}},
+    {"version": "v1", "type": "STREAM_CHUNK", "session_id": "sess-001", "corr_id": "corr-001", "seq": 2, "payload": {"content": "好"}},
+    {"version": "v1", "type": "STREAM_END", "session_id": "sess-001", "corr_id": "corr-001", "seq": 2, "payload": {"reason": "stop", "total_tokens": 2}}
+  ]
+}
+```
+
+错误时返回 ERROR 信封：
+
+```json
+{
+  "version": "v1",
+  "type": "ERROR",
+  "session_id": "sess-001",
+  "corr_id": "corr-001",
+  "payload": {
+    "error_code": "AUTH_FAILED",
+    "message": "认证失败",
+    "recoverable": false,
+    "retry_recommended": false,
+    "source": "gateway"
+  }
+}
+```
+
+---
 
 ### 1.2 POST /stream — SSE 流式调用
 
 发送 INVOKE 消息，以 Server-Sent Events 流式返回 STREAM_CHUNK。
 
 **请求**：
+
 ```bash
 curl -X POST http://localhost:8000/stream \
   -H "Content-Type: application/json" \
@@ -47,14 +101,24 @@ curl -X POST http://localhost:8000/stream \
   }'
 ```
 
-**响应**：SSE 流，每个事件格式为 `data: {json}\n\n`。
+**响应**：SSE 流，每个事件格式为 `data: {json}\n\n`：
+
+```
+data: {"version":"v1","type":"STREAM_CHUNK","session_id":"sess-002","corr_id":"corr-002","seq":1,"payload":{"content":"春"}}
+
+data: {"version":"v1","type":"STREAM_CHUNK","session_id":"sess-002","corr_id":"corr-002","seq":2,"payload":{"content":"风"}}
+
+data: {"version":"v1","type":"STREAM_END","session_id":"sess-002","corr_id":"corr-002","seq":2,"payload":{"reason":"stop","total_tokens":2}}
+```
+
+---
 
 ### 1.3 WebSocket /ws — 双向通信
 
 WebSocket 端点，支持双向 A2A 消息收发。
 
 ```python
-import websockets, json
+import websockets, json, asyncio
 
 async def ws_client():
     async with websockets.connect("ws://localhost:8000/ws") as ws:
@@ -64,26 +128,76 @@ async def ws_client():
             "session_id": "sess-003", "corr_id": "corr-003",
             "payload": {"prompt": "hello", "model": "mock-model"}
         }))
+
         # 接收 STREAM_CHUNK + STREAM_END
         while True:
             msg = await ws.recv()
             data = json.loads(msg)
             if data["type"] == "STREAM_END":
                 break
-            print(data["payload"].get("content", ""), end="")
+            if data["type"] == "STREAM_CHUNK":
+                print(data["payload"].get("content", ""), end="")
+
+        # 发送 CANCEL（另起一个 corr_id）
+        await ws.send(json.dumps({
+            "version": "v1", "type": "CANCEL",
+            "session_id": "sess-003", "corr_id": "corr-004",
+            "payload": {"reason": "user requested"}
+        }))
+        resp = json.loads(await ws.recv())
+        print(f"Cancel response: {resp}")
 ```
+
+**WebSocket 消息流示例**：
+
+```
+Client → Server:  {"type": "INVOKE", ...}
+Server → Client:  {"type": "STREAM_CHUNK", "seq": 1, ...}
+Server → Client:  {"type": "STREAM_CHUNK", "seq": 2, ...}
+Server → Client:  {"type": "STREAM_END", ...}
+Client → Server:  {"type": "HEARTBEAT", ...}
+Server → Client:  {"type": "HEARTBEAT", ...}
+```
+
+---
 
 ### 1.4 POST /cancel — 取消任务
 
 ```bash
 curl -X POST http://localhost:8000/cancel \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
   -d '{
     "version": "v1", "type": "CANCEL",
     "session_id": "sess-001", "corr_id": "corr-001",
     "payload": {"reason": "user requested"}
   }'
 ```
+
+**CANCEL Payload 字段**：
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| reason | string | 否 | 取消原因 |
+
+**响应**：
+
+成功取消：
+```json
+{"version":"v1","type":"ERROR","session_id":"sess-001","corr_id":"corr-001","payload":{"error_code":"CANCELLED","message":"任务已取消","source":"gateway"}}
+```
+
+重复取消：
+```json
+{"version":"v1","type":"ERROR","session_id":"sess-001","corr_id":"corr-001","payload":{"error_code":"ALREADY_CANCELLED","message":"任务已取消，无需重复取消"}}
+```
+
+终态后取消：
+```json
+{"version":"v1","type":"ERROR","session_id":"sess-001","corr_id":"corr-001","payload":{"error_code":"MSG_AFTER_TERMINAL","message":"event 'CANCEL' rejected: session in terminal state 'Done'"}}
+```
+
+---
 
 ### 1.5 POST /heartbeat — 心跳
 
@@ -97,6 +211,16 @@ curl -X POST http://localhost:8000/heartbeat \
   }'
 ```
 
+**响应**：
+
+```json
+{"version":"v1","type":"HEARTBEAT","session_id":"sess-001","corr_id":"corr-001","payload":{"status":"alive","last_seen":1716712345.678}}
+```
+
+心跳会更新 `last_seen` 字段，超时检查器据此判断会话是否存活。
+
+---
+
 ### 1.6 GET /health — 健康检查
 
 ```bash
@@ -104,11 +228,29 @@ curl http://localhost:8000/health
 # {"status": "ok", "providers": 3}
 ```
 
+---
+
 ### 1.7 GET /metrics — 指标查询
 
 ```bash
 curl http://localhost:8000/metrics
 ```
+
+返回字段：
+
+| 字段 | 说明 |
+|------|------|
+| request_count | 总请求数 |
+| success_count | 成功数 |
+| failure_count | 失败数 |
+| cancel_count | 取消数 |
+| timeout_count | 超时数 |
+| active_sessions | 活跃会话数 |
+| avg_first_token_latency_ms | 平均首 Token 延迟 |
+| avg_total_duration_ms | 平均总耗时 |
+| p95_first_token_latency_ms | P95 首 Token 延迟 |
+
+---
 
 ### 1.8 GET /error-codes — 错误码列表
 
@@ -116,11 +258,17 @@ curl http://localhost:8000/metrics
 curl http://localhost:8000/error-codes
 ```
 
+返回 31 个注册错误码的完整定义，包含 `code`、`source`、`trigger`、`recoverable`、`retry_recommended`、`description`。
+
+---
+
 ### 1.9 GET /audit/{corr_id} — 审计查询
 
 ```bash
 curl http://localhost:8000/audit/corr-001
 ```
+
+返回指定 corr_id 的所有审计记录，包含 `session_id`、`corr_id`、`event`、`timestamp`、`model`、`provider`、`duration_ms`、`error_code`、`trace_id` 等字段。
 
 ---
 
@@ -165,6 +313,8 @@ curl -X POST http://localhost:8000/agents/register \
     "capabilities": ["code-generation", "python"]
   }'
 ```
+
+注册时 SecurityManager 自动为 Agent 生成 API Key。
 
 ### 2.4 POST /delegate/fan-out — 并发委派多个 Agent
 
@@ -212,6 +362,17 @@ curl http://localhost:8000/delegations
 }
 ```
 
+**AGENT_DELEGATE Payload 字段**：
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| target_agent | string | 与 target_agents 二选一 | 目标 Agent ID |
+| target_agents | list[str] | 与 target_agent 二选一 | fan-out 模式多目标 |
+| task | string | 是 | 委派任务描述 |
+| pattern | string | 否 | 协调模式（"single" / "fan-out"） |
+| source_agent | string | 否 | 源 Agent ID |
+| context | dict | 否 | 上下文数据 |
+
 **Fan-out 并发委派**：
 
 ```json
@@ -246,6 +407,15 @@ curl http://localhost:8000/delegations
 }
 ```
 
+**AGENT_RESPONSE Payload 字段**：
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| delegation_id | string | 是 | 委派 ID |
+| result | string | 是 | 任务结果 |
+| status | string | 否 | 状态（"completed" / "failed"） |
+| source_agent | string | 否 | 响应 Agent ID |
+
 ---
 
 ## 4. 错误响应格式
@@ -267,3 +437,34 @@ curl http://localhost:8000/delegations
   }
 }
 ```
+
+**ERROR Payload 字段**：
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| error_code | string | 是 | 错误码（来自 28 码注册表） |
+| message | string | 否 | 错误描述 |
+| recoverable | bool | 否 | 是否可恢复 |
+| retry_recommended | bool | 否 | 是否建议重试 |
+| source | string | 否 | 错误来源（gateway / provider / agent） |
+
+---
+
+## 5. Legacy 协议兼容请求
+
+Gateway 同时接受 CSD_Stream_v0 旧名称，自动映射为 A2A_min_v1 新名称：
+
+```bash
+# 使用旧名称 TASK_START 等价于 INVOKE
+curl -X POST http://localhost:8000/invoke \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version": "v1", "type": "TASK_START",
+    "session_id": "sess-001", "corr_id": "corr-001",
+    "payload": {"prompt": "hello", "model": "deepseek-chat"}
+  }'
+```
+
+映射表：TASK_START→INVOKE, CHUNK→STREAM_CHUNK, TASK_END→STREAM_END, STOP→CANCEL, PING→HEARTBEAT, FAIL→ERROR。
+
+未知类型返回 `INVALID_MESSAGE_TYPE` 错误。

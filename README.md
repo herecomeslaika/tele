@@ -21,6 +21,7 @@ cp config/.env.example config/.env
 
 ```bash
 python -m pytest tests/test_comprehensive.py -v
+# 预期：141 passed
 ```
 
 ### 启动网关
@@ -52,44 +53,75 @@ python -m app.mock_server --port 9000
 ```
 app/
   main.py                 # FastAPI 入口 + GatewayApp
-  cli_agent.py            # CLI Agent
-  mock_server.py          # Mock LLM Server
-  core/                   # 核心模块 (状态机/校验/重试/安全/审计/...)
-  adapters/                # Provider 适配器 (OpenAI/Anthropic/Ollama/Mock)
-  models/                  # 数据模型 (Envelope/SessionState)
+  cli_agent.py            # CLI Agent (#30)
+  mock_server.py          # Mock LLM Server (#21)
+  core/                   # 核心模块
+    state_machine.py      # 状态机引擎 (#7)
+    seq_checker.py        # 序号校验 (#5)
+    errors.py             # 28 错误码注册表 (#2)
+    idempotency.py        # 幂等性管理 (#4)
+    retry.py              # 指数退避重试 (#3)
+    timeout.py            # 四类超时 (#11)
+    flow_control.py       # 流控与背压 (#10)
+    logger.py             # 结构化日志 (#16)
+    tracing.py            # OpenTelemetry 追踪 (#19)
+    metrics.py            # 指标采集 (#17)
+    audit.py              # 持久化审计 (#27)
+    security.py           # 安全边界 (#28)
+    policy_filter.py      # 输入输出过滤 (#29)
+    config.py             # 配置加载 (#15)
+    multi_agent.py        # Multi-Agent (#37)
+  adapters/               # Provider 适配器 (#12)
+    provider.py           # 统一接口基类
+    openai_provider.py    # OpenAI-compatible (#13)
+    anthropic_provider.py # Anthropic-compatible (#13)
+    ollama_provider.py    # Ollama 本地 (#14)
+    mock_provider.py      # Mock 适配器 (#21, #22)
+    router.py             # 路由 (#25, #26)
+  models/                 # 数据模型
+    envelope.py           # 统一信封 (#1, #32, #33)
+    state.py              # 会话状态枚举 (#7)
 config/
   .env.example            # 环境变量模板
 tests/
-  test_comprehensive.py   # 141 测试用例
+  test_comprehensive.py   # 141 测试用例 (#20)
 docs/
-  01-design.md            # 设计说明
-  02-api.md               # API 示例
-  03-deploy.md            # 部署说明
-  04-testing.md           # 测试说明
-  05-issues.md            # 问题记录
-  06-protocol.md          # 协议说明
-  07-ai-coding-reflection.md  # AI 编程反思
-  08-final-report.md      # 期末报告
+  01-design.md            # 设计说明 (#34)
+  02-api.md               # API 示例 (#34)
+  03-deploy.md            # 部署说明 (#34)
+  04-testing.md           # 测试说明 (#34)
+  05-issues.md            # 问题记录 (#34)
+  06-protocol.md          # 协议说明 (#34)
+  07-ai-coding-reflection.md  # AI 编程反思 (#35)
+  08-final-report.md      # 期末报告 (#34)
+  submission-checklist.md # 提交检查清单
 evidence/
-  logs/                   # 运行日志
-  screenshots/             # 截图
-  test-results/            # 测试结果
-  provider-call/           # Provider 调用证据
+  audit/                  # JSONL 审计日志 (#27)
+  test-results/           # 测试结果 (#20)
+  provider-call/          # Provider 调用证据 (#14, #36)
   extension-goals/        # 扩展目标证据
-  audit/                   # 审计日志
-  performance/             # 性能基线
+  performance/            # 性能基线 (#23)
+  local-model-deployment.md  # 本地模型部署证据 (#14)
+  deepseek-e2e-validation.md # DeepSeek 端到端证据 (#36)
 scripts/
-  collect_evidence.py      # 证据收集
-  perf_baseline.py         # 性能基线
-  generate_report.py       # 自动报告生成
+  collect_evidence.py     # 证据收集 (#31)
+  perf_baseline.py        # 性能基线 (#23)
+  generate_report.py      # 自动报告 (#31)
 ```
 
 ## 扩展目标覆盖
 
 | 档位 | 目标编号 |
 |------|----------|
-| 必做 | 1,2,3,4,5,6,7,8,9,11,14,16,18,20,21,30,34,35,36 |
-| 增强 | 10,12,15,17,19,22,23,24,31,32,33 |
-| 终极 | 13,25,26,27,28,29,37 |
+| 必做 | 1, 2, 5, 6, 7, 8, 9, 11, 14, 16, 18, 20, 21, 30, 34, 35, 36 |
+| 增强 | 3, 4, 10, 12, 15, 17, 19, 22, 23, 24, 31, 32, 33 |
+| 终极 | 13, 25, 26, 27, 28, 29, 37 |
 
 共 37/37 目标已完成，141 测试用例 100% 通过。
+
+## 真实 Provider 调用证据
+
+| Provider | 模型 | 首 Token 延迟 | 总耗时 | Chunks | 证据文件 |
+|----------|------|---------------|--------|--------|----------|
+| DeepSeek | deepseek-chat | 1.117s | 1.261s | 7 | evidence/deepseek-e2e-validation.json |
+| Ollama | qwen2.5:0.5b | 1.426s | 1.702s | 32 | evidence/provider-call/ollama-gateway-e2e.json |
