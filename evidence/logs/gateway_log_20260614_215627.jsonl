@@ -1,0 +1,9 @@
+{"timestamp": 1781445387.7451558, "session_id": "sess-001", "corr_id": "corr-001", "seq": null, "state": "Idle", "event": "agent.invoke", "latency_ms": null, "error_code": null}
+{"timestamp": 1781445387.7464123, "session_id": "sess-001", "corr_id": "corr-001", "seq": 1, "state": "Streaming", "event": "gateway.stream", "latency_ms": null, "error_code": null}
+{"timestamp": 1781445387.7464807, "session_id": "sess-001", "corr_id": "corr-001", "seq": 2, "state": "Streaming", "event": "gateway.stream", "latency_ms": null, "error_code": null}
+{"timestamp": 1781445387.7465339, "session_id": "sess-001", "corr_id": "corr-001", "seq": 3, "state": "Streaming", "event": "gateway.stream", "latency_ms": null, "error_code": null}
+{"timestamp": 1781445387.746586, "session_id": "sess-001", "corr_id": "corr-001", "seq": 3, "state": "Done", "event": "gateway.stream_end", "latency_ms": 3, "error_code": null}
+{"timestamp": 1781445387.7481825, "session_id": "sess-002", "corr_id": "corr-002", "seq": null, "state": "Cancelled", "event": "gateway.cancel", "latency_ms": null, "error_code": "CANCELLED"}
+{"timestamp": 1781445387.748227, "session_id": "sess-002", "corr_id": "corr-002", "seq": null, "state": "Cancelled", "event": "gateway.cancel_duplicate", "latency_ms": null, "error_code": "ALREADY_CANCELLED"}
+{"timestamp": 1781445387.748305, "session_id": "sess-001", "corr_id": "corr-hb-001", "seq": null, "state": "Done", "event": "gateway.heartbeat", "latency_ms": null, "error_code": null}
+{"timestamp": 1781445387.7483764, "session_id": "sess-003", "corr_id": "corr-003", "seq": null, "state": null, "event": "gateway.error", "latency_ms": null, "error_code": "BAD_REQUEST"}
