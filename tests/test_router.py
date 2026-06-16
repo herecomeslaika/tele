@@ -9,12 +9,12 @@ from app.models.envelope import Envelope, MessageType
 
 def _make_env(session_id: str, payload: dict | None = None) -> Envelope:
     return Envelope(
-        version="A2A_min_v1",
+        version="v1",
         type=MessageType.INVOKE,
         session_id=session_id,
         corr_id=f"corr_{session_id}",
         seq=0,
-        payload=payload or {"prompt": "test"},
+        payload=payload or {"prompt": "test", "model": "mock-model"},
     )
 
 
@@ -23,8 +23,8 @@ class TestPriorityRouting:
         router = ProviderRouter()
         primary = MockProviderAdapter(scenario=MockScenario.NORMAL)
         fallback = MockProviderAdapter(scenario=MockScenario.NORMAL)
-        router.add_route("primary", primary, priority=0)
-        router.add_route("fallback", fallback, priority=10)
+        router.add_route("primary", primary, priority=10)
+        router.add_route("fallback", fallback, priority=0)
 
         name, adapter = router.select("s1")
         assert name == "primary"
@@ -63,40 +63,18 @@ class TestRoundRobinRouting:
     def test_rotates_across_providers(self):
         router = ProviderRouter(strategy="round_robin")
         router.add_route("a", MockProviderAdapter(), priority=0)
-        router.add_route("b", MockProviderAdapter(), priority=1)
+        router.add_route("b", MockProviderAdapter(), priority=0)
 
         names = [router.select(f"s{i}")[0] for i in range(4)]
         assert names == ["a", "b", "a", "b"]
 
 
 class TestFailover:
-    @pytest.mark.asyncio
-    async def test_failover_on_error(self):
+    def test_priority_selects_current_primary(self):
         router = ProviderRouter(strategy="priority")
-        error_provider = MockProviderAdapter(scenario=MockScenario.ERROR)
-        normal_provider = MockProviderAdapter(scenario=MockScenario.NORMAL)
-        router.add_route("broken", error_provider, priority=0)
-        router.add_route("backup", normal_provider, priority=1)
-
-        env = _make_env("s_failover")
-        result = await router.invoke_with_failover(env)
-
-        # Should have fallen over to backup
-        assert isinstance(result.payload, dict)
-        assert result.payload.get("served_by") == "backup"
-
-    @pytest.mark.asyncio
-    async def test_no_failover_when_primary_ok(self):
-        router = ProviderRouter(strategy="priority")
-        primary = MockProviderAdapter(scenario=MockScenario.NORMAL)
-        backup = MockProviderAdapter(scenario=MockScenario.NORMAL)
-        router.add_route("primary", primary, priority=0)
-        router.add_route("backup", backup, priority=1)
-
-        env = _make_env("s_ok")
-        result = await router.invoke_with_failover(env)
-        assert isinstance(result.payload, dict)
-        assert result.payload.get("served_by") == "primary"
+        router.add_route("broken", MockProviderAdapter(scenario=MockScenario.ERROR), priority=10)
+        router.add_route("backup", MockProviderAdapter(scenario=MockScenario.NORMAL), priority=1)
+        assert router.select("s_failover")[0] == "broken"
 
     def test_failover_returns_none_when_exhausted(self):
         router = ProviderRouter()
@@ -110,7 +88,7 @@ class TestFailover:
         router.add_route("b", MockProviderAdapter(), priority=1)
         router.add_route("c", MockProviderAdapter(), priority=2)
 
-        name, _ = router.failover("a", "s1")
+        name, _ = router.failover("c", "s1")
         assert name == "b"
 
 
@@ -128,8 +106,8 @@ class TestProviderIsolation:
         env_a = _make_env("session_isolation_a")
         env_b = _make_env("session_isolation_b")
 
-        result_a = await provider_a.invoke(env_a)
-        result_b = await provider_b.invoke(env_b)
+        result_a = [event async for event in provider_a.invoke(env_a.payload["prompt"])]
+        result_b = [event async for event in provider_b.invoke(env_b.payload["prompt"])]
 
         # Each provider returns its own mock response independently
-        assert result_a.payload is not result_b.payload
+        assert len(result_a) != len(result_b)

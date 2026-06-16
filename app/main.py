@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -43,6 +44,24 @@ from app.core.timeout import TimeoutChecker
 from app.models.envelope import (
     Envelope, MessageType, ProtocolVersion, LEGACY_MESSAGE_MAP,
     make_envelope, make_error_envelope,
+)
+from app.models.a2a import (
+    A2A_MEDIA_TYPE, TaskState, SendMessageRequest,
+)
+from app.core.a2a_compat import (
+    A2ATaskStore,
+    artifact_update_from_chunk,
+    dump_a2a,
+    envelope_from_send_request,
+    error_from_gateway_payload,
+    error_response,
+    make_agent_card,
+    response_headers,
+    sse_headers,
+    status_update,
+    task_from_content,
+    task_from_error,
+    task_stream_response,
 )
 from app.models.state import SessionState
 from app.adapters.provider import ProviderAdapter, ProviderConfig, ProviderType
@@ -123,7 +142,15 @@ class GatewayApp:
         ))
         self.router = ProviderRouter(strategy=config.strategy)
         self.multi_agent = MultiAgentManager()
+        self.a2a_tasks = A2ATaskStore()
         self._setup_providers()
+
+    def default_model(self) -> str:
+        if self.config.providers:
+            return self.config.providers[0].model
+        if self.router.routes:
+            return self.router.routes[0].adapter.config.model
+        return "mock-model"
 
     def _setup_providers(self) -> None:
         """Initialize provider adapters from configuration."""
@@ -584,6 +611,303 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
         log_event(logger, "gateway.shutdown")
 
     app = FastAPI(title="A2A_min_v1 Gateway", version="1.0.0", lifespan=lifespan)
+
+    def a2a_json(content: dict, status_code: int = 200) -> JSONResponse:
+        return JSONResponse(
+            status_code=status_code,
+            content=content,
+            media_type=A2A_MEDIA_TYPE,
+            headers={"A2A-Version": "1.0"},
+        )
+
+    def normalize_msg_type(value: object) -> str:
+        if hasattr(value, "value"):
+            return str(value.value)
+        return str(value)
+
+    # --- Official A2A Agent Card discovery ---
+    @app.get("/.well-known/agent-card.json")
+    async def a2a_agent_card(request: Request):
+        card = make_agent_card(
+            base_url=str(request.base_url).rstrip("/"),
+            security_enabled=config.security_enabled,
+        )
+        return a2a_json(dump_a2a(card))
+
+    @app.get("/extendedAgentCard")
+    async def a2a_extended_agent_card():
+        return a2a_json(
+            error_response(
+                status_code=400,
+                status="FAILED_PRECONDITION",
+                reason="EXTENDED_AGENT_CARD_NOT_CONFIGURED",
+                message="Extended Agent Card is not configured for this gateway.",
+            ),
+            status_code=400,
+        )
+
+    # --- Official A2A HTTP+JSON message operations ---
+    @app.post("/message:send")
+    async def a2a_message_send(request: Request):
+        try:
+            raw = await request.json()
+            send_request = SendMessageRequest(**raw)
+            envelope = envelope_from_send_request(send_request, gateway.default_model())
+        except Exception as e:
+            return a2a_json(
+                error_response(
+                    status_code=400,
+                    status="INVALID_ARGUMENT",
+                    reason="INVALID_REQUEST",
+                    message=f"Invalid SendMessageRequest: {e}",
+                ),
+                status_code=400,
+            )
+
+        task_id = envelope.corr_id
+        context_id = envelope.session_id
+        submitted = task_from_content(
+            task_id=task_id,
+            context_id=context_id,
+            user_message=send_request.message,
+            content="",
+            state=TaskState.TASK_STATE_SUBMITTED,
+            metadata={"a2aCompat": True},
+        )
+        gateway.a2a_tasks.put(submitted)
+
+        content_parts: list[str] = []
+        async for chunk in gateway.handle_envelope(
+            envelope.model_dump(),
+            agent_id=request.headers.get("X-Agent-ID"),
+            api_key=request.headers.get("X-API-Key"),
+        ):
+            msg_type = normalize_msg_type(chunk.get("type"))
+            payload = chunk.get("payload", {})
+            if msg_type == MessageType.STREAM_CHUNK.value:
+                content_parts.append(str(payload.get("content", "")))
+            elif msg_type == MessageType.ERROR.value:
+                if payload.get("error_code") == "CANCELLED":
+                    task = task_from_content(
+                        task_id=task_id,
+                        context_id=context_id,
+                        user_message=send_request.message,
+                        content="",
+                        state=TaskState.TASK_STATE_CANCELED,
+                        metadata={"a2aCompat": True},
+                    )
+                    gateway.a2a_tasks.put(task)
+                    return a2a_json({"task": dump_a2a(task)})
+                task = task_from_error(
+                    task_id=task_id,
+                    context_id=context_id,
+                    error_code=payload.get("error_code", "INTERNAL_ERROR"),
+                    message=payload.get("message", "Gateway returned an error"),
+                )
+                gateway.a2a_tasks.put(task)
+                status_code, body = error_from_gateway_payload(payload, task_id, context_id)
+                return a2a_json(body, status_code=status_code)
+
+        task = task_from_content(
+            task_id=task_id,
+            context_id=context_id,
+            user_message=send_request.message,
+            content="".join(content_parts),
+            state=TaskState.TASK_STATE_COMPLETED,
+            metadata={"a2aCompat": True, "chunkCount": len(content_parts)},
+        )
+        gateway.a2a_tasks.put(task)
+        return a2a_json({"task": dump_a2a(task)})
+
+    @app.post("/message:stream")
+    async def a2a_message_stream(request: Request):
+        try:
+            raw = await request.json()
+            send_request = SendMessageRequest(**raw)
+            envelope = envelope_from_send_request(send_request, gateway.default_model())
+        except Exception as e:
+            return a2a_json(
+                error_response(
+                    status_code=400,
+                    status="INVALID_ARGUMENT",
+                    reason="INVALID_REQUEST",
+                    message=f"Invalid SendMessageRequest: {e}",
+                ),
+                status_code=400,
+            )
+
+        task_id = envelope.corr_id
+        context_id = envelope.session_id
+        content_parts: list[str] = []
+
+        async def event_generator():
+            yield "data: " + json.dumps(
+                dump_a2a(status_update(task_id, context_id, TaskState.TASK_STATE_WORKING)),
+                ensure_ascii=False,
+            ) + "\n\n"
+
+            async for chunk in gateway.handle_envelope(
+                envelope.model_dump(),
+                agent_id=request.headers.get("X-Agent-ID"),
+                api_key=request.headers.get("X-API-Key"),
+            ):
+                msg_type = normalize_msg_type(chunk.get("type"))
+                payload = chunk.get("payload", {})
+                if msg_type == MessageType.STREAM_CHUNK.value:
+                    content = str(payload.get("content", ""))
+                    content_parts.append(content)
+                    seq = chunk.get("seq") or len(content_parts)
+                    yield "data: " + json.dumps(
+                        dump_a2a(artifact_update_from_chunk(task_id, context_id, content, int(seq))),
+                        ensure_ascii=False,
+                    ) + "\n\n"
+                elif msg_type == MessageType.ERROR.value:
+                    state = (
+                        TaskState.TASK_STATE_CANCELED
+                        if payload.get("error_code") == "CANCELLED"
+                        else TaskState.TASK_STATE_FAILED
+                    )
+                    task = task_from_content(
+                        task_id=task_id,
+                        context_id=context_id,
+                        user_message=send_request.message,
+                        content="".join(content_parts),
+                        state=state,
+                        metadata={"a2aCompat": True, "errorCode": payload.get("error_code")},
+                    )
+                    gateway.a2a_tasks.put(task)
+                    yield "data: " + json.dumps(dump_a2a(task_stream_response(task)), ensure_ascii=False) + "\n\n"
+                    return
+
+            task = task_from_content(
+                task_id=task_id,
+                context_id=context_id,
+                user_message=send_request.message,
+                content="".join(content_parts),
+                state=TaskState.TASK_STATE_COMPLETED,
+                metadata={"a2aCompat": True, "chunkCount": len(content_parts)},
+            )
+            gateway.a2a_tasks.put(task)
+            yield "data: " + json.dumps(dump_a2a(task_stream_response(task)), ensure_ascii=False) + "\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers=sse_headers(),
+        )
+
+    # --- Official A2A task operations ---
+    @app.get("/tasks/{task_id}")
+    async def a2a_get_task(task_id: str):
+        task = gateway.a2a_tasks.get(task_id)
+        if task is None:
+            return a2a_json(
+                error_response(
+                    status_code=404,
+                    status="NOT_FOUND",
+                    reason="TASK_NOT_FOUND",
+                    message="The specified task ID does not exist or is not accessible.",
+                    metadata={"taskId": task_id},
+                ),
+                status_code=404,
+            )
+        return a2a_json({"task": dump_a2a(task)})
+
+    @app.get("/tasks")
+    async def a2a_list_tasks(contextId: Optional[str] = None, status: Optional[str] = None):
+        state = None
+        if status:
+            try:
+                state = TaskState(status)
+            except ValueError:
+                return a2a_json(
+                    error_response(
+                        status_code=400,
+                        status="INVALID_ARGUMENT",
+                        reason="INVALID_TASK_STATE",
+                        message=f"Unknown task state: {status}",
+                    ),
+                    status_code=400,
+                )
+        tasks = gateway.a2a_tasks.list(context_id=contextId, state=state)
+        return a2a_json({"tasks": [dump_a2a(t) for t in tasks], "nextPageToken": ""})
+
+    @app.post("/tasks/{task_id}:cancel")
+    async def a2a_cancel_task(task_id: str):
+        task = gateway.a2a_tasks.get(task_id)
+        if task is None:
+            return a2a_json(
+                error_response(
+                    status_code=404,
+                    status="NOT_FOUND",
+                    reason="TASK_NOT_FOUND",
+                    message="The specified task ID does not exist or is not accessible.",
+                    metadata={"taskId": task_id},
+                ),
+                status_code=404,
+            )
+        if task.status.state in {
+            TaskState.TASK_STATE_COMPLETED,
+            TaskState.TASK_STATE_FAILED,
+            TaskState.TASK_STATE_CANCELED,
+            TaskState.TASK_STATE_REJECTED,
+        }:
+            return a2a_json(
+                error_response(
+                    status_code=400,
+                    status="FAILED_PRECONDITION",
+                    reason="TASK_NOT_CANCELABLE",
+                    message="Task is already terminal and cannot be canceled.",
+                    metadata={"taskId": task_id},
+                ),
+                status_code=400,
+            )
+
+        canceled_task = task.model_copy(
+            update={"status": task.status.model_copy(update={"state": TaskState.TASK_STATE_CANCELED})}
+        )
+        gateway.a2a_tasks.put(canceled_task)
+        return a2a_json({"task": dump_a2a(canceled_task)})
+
+    @app.post("/tasks/{task_id}:subscribe")
+    async def a2a_subscribe_task(task_id: str):
+        task = gateway.a2a_tasks.get(task_id)
+        if task is None:
+            return a2a_json(
+                error_response(
+                    status_code=404,
+                    status="NOT_FOUND",
+                    reason="TASK_NOT_FOUND",
+                    message="The specified task ID does not exist or is not accessible.",
+                    metadata={"taskId": task_id},
+                ),
+                status_code=404,
+            )
+        if task.status.state in {
+            TaskState.TASK_STATE_COMPLETED,
+            TaskState.TASK_STATE_FAILED,
+            TaskState.TASK_STATE_CANCELED,
+            TaskState.TASK_STATE_REJECTED,
+        }:
+            return a2a_json(
+                error_response(
+                    status_code=400,
+                    status="FAILED_PRECONDITION",
+                    reason="UNSUPPORTED_OPERATION",
+                    message="Subscribe is only available for non-terminal tasks.",
+                    metadata={"taskId": task_id},
+                ),
+                status_code=400,
+            )
+
+        async def event_generator():
+            yield "data: " + json.dumps(dump_a2a(task_stream_response(task)), ensure_ascii=False) + "\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers=sse_headers(),
+        )
 
     # --- REST endpoint: /invoke ---
     @app.post("/invoke")

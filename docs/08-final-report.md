@@ -535,3 +535,33 @@ python scripts/perf_baseline.py
 - docs/07-ai-coding-reflection.md — AI 编程反思（4 轮 Prompt、6 个人工修改、经验总结）
 - docs/08-final-report.md — 最终实验报告（含评分维度对照）
 - docs/submission-checklist.md — 提交检查清单
+
+---
+
+## 7. 二次迭代补充：官方 A2A 兼容层
+
+在原课程版 `A2A_min_v1` 网关已经完成后，项目新增官方 A2A HTTP+JSON 兼容层，使系统不只满足课程自定义协议要求，也能以更接近公开 A2A 协议的方式被外部 Agent 客户端发现和调用。
+
+### 7.1 新增范围
+
+- 新增 `/.well-known/agent-card.json`，提供 Agent Card 能力发现。
+- 新增 `/message:send`，接收官方 A2A `Message`，返回标准 `Task`。
+- 新增 `/message:stream`，以 SSE 返回 `StreamResponse`、状态更新和 artifact 增量。
+- 新增 `/tasks/{task_id}`、`/tasks`、`/tasks/{task_id}:cancel`、`/tasks/{task_id}:subscribe`。
+- 新增 `application/a2a+json` 响应类型与 `A2A-Version` 响应头。
+- 新增官方 `TaskState`、`Message`、`Part`、`Artifact`、`AgentCard` 和标准错误模型。
+
+### 7.2 实现策略
+
+兼容层采用“边界适配”方式实现，而不是另起一套执行引擎。官方 A2A 请求进入网关后，会被转换为内部 `A2A_min_v1` Envelope，再交给既有状态机、ProviderRouter、Adapter、审计和流控模块处理。这样可以保持原项目核心能力一致，也避免两套协议实现之间出现行为分叉。
+
+### 7.3 验收结果
+
+- 新增 `tests/test_a2a_compat.py` 覆盖 Agent Card、消息发送、任务查询、任务列表、流式响应、标准错误和终态取消。
+- 修复拆分测试中对旧 API 的引用，包括旧错误导入、旧状态机事件名、旧 Router 参数和旧 tracing 方法。
+- 完整测试命令：`python -m pytest -q`。
+- 综合验收命令：`python -m pytest tests/test_comprehensive.py -q`。
+
+### 7.4 后续工作量建议
+
+如果继续增加有工作量的扩展，优先选择持久化 Task Store、Push Notification、Extended Agent Card 鉴权增强、上游 Provider Cancel、多 Agent 官方 Skill 暴露。这些扩展都能在现有架构上继续迭代，并且有明确的代码、测试和文档产出。

@@ -308,3 +308,52 @@ Gateway 在 `field_validator("type")` 阶段自动将 CSD_Stream_v0 旧名称映
 - v0 信封字段名与新版本一致，但 type 使用 CSD_Stream_v0 旧名称
 - 转换方式：将 type 字段通过 `LEGACY_MESSAGE_MAP` 映射即可
 - 注意：v0 可能缺少 version 字段，需在 validator 中设置默认值
+
+---
+
+## 7. 官方 A2A 兼容层
+
+### 7.1 定位
+
+`A2A_min_v1` 是本课程项目内部执行协议，强调统一 Envelope、状态机、错误码、幂等和流式 token 管理。官方 A2A 兼容层是新增的 HTTP 边界适配层，目标是让外部客户端可以使用 Agent Card、`/message:send`、标准 `Task` 状态和 `application/a2a+json` 与本项目交互。
+
+兼容层不重写核心执行逻辑，而是做以下映射：
+
+| 官方 A2A 对象 | 内部对象 | 说明 |
+| ------------- | -------- | ---- |
+| `Message.parts[].text` | `Envelope.payload.prompt` | 目前主要支持文本 Part |
+| `Message.contextId` | `Envelope.session_id` | 未提供时自动生成 |
+| `Message.taskId` | `Envelope.corr_id` | 未提供时自动生成 |
+| `metadata.model` | `Envelope.payload.model` | 未提供时使用网关默认模型 |
+| `metadata.task_type` | `Envelope.payload.task_type` | 供 CapabilityRouter 使用 |
+| `STREAM_CHUNK` | `TaskArtifactUpdateEvent` | 流式片段映射为 artifact 增量 |
+| `STREAM_END` | `Task.status=COMPLETED` | 最终结果合并为 artifact |
+| `ERROR` | 标准 A2A 错误或失败 Task | 根据错误类型决定 HTTP 错误或 Task 终态 |
+
+### 7.2 Task 状态映射
+
+| 内部状态 | 官方 `TaskState` |
+| -------- | ---------------- |
+| `Idle` | `SUBMITTED` |
+| `Invoked` | `WORKING` |
+| `Streaming` | `WORKING` |
+| `Done` | `COMPLETED` |
+| `Failed` | `FAILED` |
+| `Cancelled` | `CANCELED` |
+
+### 7.3 标准错误
+
+兼容层返回 `application/a2a+json` 的标准错误对象，结构接近 `google.rpc.Status`：
+
+- `code`：稳定错误码，如 `TASK_NOT_FOUND`、`UNSUPPORTED_OPERATION`。
+- `message`：面向调用方的错误说明。
+- `status`：HTTP/gRPC 风格状态，如 `NOT_FOUND`、`FAILED_PRECONDITION`。
+- `details[].@type`：`type.googleapis.com/google.rpc.ErrorInfo`。
+- `details[].metadata`：保留 task_id、source、recoverable、retry_recommended 等调试信息。
+
+### 7.4 当前边界
+
+- 当前 `TaskStore` 为进程内内存存储，服务重启后任务快照会丢失。
+- `Part` 模型已经包含 text、raw、url、data，但执行链路目前主要支持文本输入输出。
+- `/tasks/{id}:cancel` 对已完成任务返回 `UNSUPPORTED_OPERATION`；真正的上游 Provider 中断仍属于后续扩展。
+- `pushNotifications` 暂未实现，Agent Card 中明确声明为 `false`。

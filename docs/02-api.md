@@ -468,3 +468,109 @@ curl -X POST http://localhost:8000/invoke \
 映射表：TASK_START→INVOKE, CHUNK→STREAM_CHUNK, TASK_END→STREAM_END, STOP→CANCEL, PING→HEARTBEAT, FAIL→ERROR。
 
 未知类型返回 `INVALID_MESSAGE_TYPE` 错误。
+
+---
+
+## 6. 官方 A2A HTTP+JSON 兼容端点
+
+这一组端点用于对接官方 A2A HTTP+JSON 风格客户端。它们不会替代课程版 `A2A_min_v1` 接口，而是在 HTTP 边界把官方 `Message` / `Task` / `Part` / `Artifact` 转换为内部 Envelope，再复用原网关执行链路。
+
+所有 JSON 响应使用 `application/a2a+json`，并返回 `A2A-Version: 1.0`。
+
+| 端点 | 方法 | 响应模型 | 说明 |
+| ---- | ---- | -------- | ---- |
+| `/.well-known/agent-card.json` | GET | `AgentCard` | 公开能力发现 |
+| `/extendedAgentCard` | GET | `AgentCard` 或标准错误 | 扩展能力卡；未配置时返回标准错误 |
+| `/message:send` | POST | `Task` | 同步执行，返回最终任务快照 |
+| `/message:stream` | POST | SSE `StreamResponse` | 流式执行，返回状态和 artifact 增量 |
+| `/tasks/{task_id}` | GET | `Task` | 查询单个任务 |
+| `/tasks` | GET | `Task[]` | 查询当前内存任务列表 |
+| `/tasks/{task_id}:cancel` | POST | `Task` 或标准错误 | 取消任务 |
+| `/tasks/{task_id}:subscribe` | POST | SSE `StreamResponse` | 订阅非终态任务 |
+
+### 6.1 Agent Card
+
+```bash
+curl http://localhost:8000/.well-known/agent-card.json
+```
+
+关键字段：
+
+- `protocolVersion`: `1.0`
+- `preferredTransport`: `HTTP+JSON`
+- `url`: 网关基地址
+- `capabilities.streaming`: `true`
+- `defaultInputModes` / `defaultOutputModes`: `text/plain`
+- `skills`: 至少包含 `chat` 和 `multi_agent_delegate`
+
+### 6.2 POST /message:send
+
+```bash
+curl -X POST http://localhost:8000/message:send \
+  -H "Content-Type: application/a2a+json" \
+  -d '{
+    "message": {
+      "messageId": "msg-001",
+      "role": "ROLE_USER",
+      "parts": [
+        {"text": "你好，请用一句话介绍这个网关"}
+      ]
+    },
+    "configuration": {
+      "acceptedOutputModes": ["text/plain"]
+    },
+    "metadata": {
+      "model": "mock-model",
+      "task_type": "chat"
+    }
+  }'
+```
+
+响应为标准 `Task`。其中 `id` 对应内部 `corr_id`，`contextId` 对应内部 `session_id`，完成后的文本结果放入 `artifacts[].parts[].text`。
+
+### 6.3 POST /message:stream
+
+```bash
+curl -N -X POST http://localhost:8000/message:stream \
+  -H "Content-Type: application/a2a+json" \
+  -d '{
+    "message": {
+      "messageId": "msg-002",
+      "role": "ROLE_USER",
+      "parts": [{"text": "写三句话说明 A2A 兼容层"}]
+    },
+    "metadata": {"model": "mock-model"}
+  }'
+```
+
+SSE 中每条 `data:` 都是 `StreamResponse`，可能包含：
+
+- `statusUpdate`：任务状态变化，如 `SUBMITTED`、`WORKING`、`COMPLETED`。
+- `artifactUpdate`：流式文本片段。
+- `task`：最终任务快照。
+
+### 6.4 标准错误
+
+官方兼容层错误使用统一结构：
+
+```json
+{
+  "error": {
+    "code": "TASK_NOT_FOUND",
+    "message": "Task not found",
+    "status": "NOT_FOUND",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "TASK_NOT_FOUND",
+        "domain": "a2a.tele-laika.local",
+        "metadata": {
+          "task_id": "missing-task"
+        }
+      }
+    ]
+  }
+}
+```
+
+内部 `ERROR` Envelope 会映射到该标准错误形态；`CANCELLED` 类终态则映射为标准 `Task` 状态 `CANCELED`。

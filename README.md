@@ -125,3 +125,37 @@ scripts/
 |----------|------|---------------|--------|--------|----------|
 | DeepSeek | deepseek-chat | 1.117s | 1.261s | 7 | evidence/deepseek-e2e-validation.json |
 | Ollama | qwen2.5:0.5b | 1.426s | 1.702s | 32 | evidence/provider-call/ollama-gateway-e2e.json |
+
+## 官方 A2A HTTP+JSON 兼容层（二次迭代）
+
+项目在保留课程版 `A2A_min_v1` Envelope 接口的基础上，新增官方 A2A 兼容入口。兼容层只负责协议边界转换，内部仍复用原来的状态机、Provider 路由、安全边界、审计日志和流式执行链路。
+
+新增核心文件：
+
+- `app/models/a2a.py`：官方 A2A 数据模型，包括 `AgentCard`、`Message`、`Part`、`Task`、`Artifact`、`TaskState` 和标准错误。
+- `app/core/a2a_compat.py`：官方 A2A 与 `A2A_min_v1` Envelope 的转换、Task 快照、SSE 事件和错误映射。
+- `tests/test_a2a_compat.py`：官方兼容层测试。
+- `docs/09-a2a-official-compat-plan.md`：第二次迭代计划。
+- `docs/10-a2a-official-compat-progress.md`：第二次迭代进度追踪。
+
+新增 HTTP+JSON 端点：
+
+| 端点 | 方法 | 说明 |
+| ---- | ---- | ---- |
+| `/.well-known/agent-card.json` | GET | Agent Card 能力发现 |
+| `/extendedAgentCard` | GET | 扩展 Agent Card；未配置时返回标准错误 |
+| `/message:send` | POST | 非流式发送消息，返回最终 `Task` |
+| `/message:stream` | POST | SSE 流式发送消息，返回 `StreamResponse` |
+| `/tasks/{task_id}` | GET | 查询单个标准 `Task` |
+| `/tasks` | GET | 查询当前内存任务快照 |
+| `/tasks/{task_id}:cancel` | POST | 取消任务；终态任务返回标准错误 |
+| `/tasks/{task_id}:subscribe` | POST | 订阅非终态任务状态 |
+
+开发测试依赖：
+
+```bash
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+python -m pytest -q
+python -m pytest tests/test_comprehensive.py -q
+```

@@ -3,16 +3,18 @@
 import pytest
 
 from app.core.state_machine import (
-    CANCEL,
-    ERROR,
-    HEARTBEAT,
-    INVOKE,
-    STREAM_CHUNK,
-    STREAM_END,
-    TIMEOUT,
+    EventType,
     GatewayStateMachine,
 )
 from app.models.state import SessionState
+
+INVOKE = EventType.INVOKE
+STREAM_CHUNK = EventType.STREAM_CHUNK
+STREAM_END = EventType.STREAM_END
+CANCEL = EventType.CANCEL
+HEARTBEAT = EventType.HEARTBEAT
+ERROR = EventType.ERROR
+TIMEOUT = EventType.TIMEOUT
 
 
 class TestStateMachineHappyPath:

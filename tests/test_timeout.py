@@ -45,7 +45,7 @@ class TestTimeoutChecker:
         tc = TimeoutChecker(
             first_token_timeout=100.0,
             token_interval_timeout=0.05,
-            provider_overall_timeout=100.0,
+            provider_response_timeout=100.0,
         )
         tc.register("s1", "c1")
         tc.on_chunk("s1")  # first token received
@@ -56,12 +56,12 @@ class TestTimeoutChecker:
         kinds = [r[1] for r in results]
         assert TimeoutKind.TOKEN_INTERVAL in kinds
 
-    def test_provider_overall_timeout(self):
-        tc = TimeoutChecker(provider_overall_timeout=0.05, first_token_timeout=100.0)
+    def test_provider_response_timeout(self):
+        tc = TimeoutChecker(provider_response_timeout=0.05, first_token_timeout=100.0)
         tc.register("s1", "c1")
         results = tc.check_timeouts(now=time.time() + 0.1)
         assert len(results) == 1
-        assert results[0][1] == TimeoutKind.PROVIDER_OVERALL
+        assert results[0][1] == TimeoutKind.PROVIDER_RESPONSE
 
     def test_remove_session(self):
         tc = TimeoutChecker()
@@ -69,10 +69,11 @@ class TestTimeoutChecker:
         tc.remove("s1")
         assert tc.get("s1") is None
 
-    def test_error_envelope_contains_code(self):
+    def test_timeout_details_contain_corr_id(self):
         tc = TimeoutChecker(first_token_timeout=0.0)
-        tc.register("s1", "c1", version="A2A_min_v1")
+        tc.register("s1", "c1")
         results = tc.check_timeouts(now=time.time() + 1.0)
-        _, kind, envelope = results[0]
-        assert envelope.payload["code"] == "FIRST_TOKEN_TIMEOUT"
-        assert envelope.session_id == "s1"
+        session_id, kind, details = results[0]
+        assert kind == TimeoutKind.FIRST_TOKEN
+        assert session_id == "s1"
+        assert details["corr_id"] == "c1"

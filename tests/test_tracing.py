@@ -22,14 +22,14 @@ class TestTraceContext:
     def test_inject_into_payload(self):
         ctx = TraceContext.new()
         payload = {"prompt": "hello"}
-        injected = ctx.inject_into_envelope(payload)
+        injected = ctx.inject_into_payload(payload)
         assert "_trace_id" in injected
         assert "_span_id" in injected
         assert injected["prompt"] == "hello"
 
     def test_extract_from_payload(self):
         ctx = TraceContext.new()
-        payload = ctx.inject_into_envelope({"data": 1})
+        payload = ctx.inject_into_payload({"data": 1})
         extracted = ctx.extract_from_envelope(payload)
         assert extracted is not None
         assert extracted.trace_id == ctx.trace_id

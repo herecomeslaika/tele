@@ -120,3 +120,19 @@
 - 性能基线基于 Mock Provider，真实 Provider 延迟受网络影响
 - CANCEL 仅实现本地取消，未实现上游取消（Ollama /api/abort 未集成）
 - MultiAgent 仅实现 single + fan-out 协调模式，fan-in/pipeline 未实现
+
+## 二次迭代检查：官方 A2A 兼容层
+
+- [x] `docs/09-a2a-official-compat-plan.md`：第二次迭代计划。
+- [x] `docs/10-a2a-official-compat-progress.md`：进度追踪。
+- [x] `app/models/a2a.py`：官方 A2A 数据模型。
+- [x] `app/core/a2a_compat.py`：官方 A2A 到课程版 Envelope 的转换层。
+- [x] `/.well-known/agent-card.json`：Agent Card 能力发现。
+- [x] `/message:send`：同步消息发送。
+- [x] `/message:stream`：SSE 流式消息发送。
+- [x] `/tasks/{task_id}`、`/tasks`、`/tasks/{task_id}:cancel`、`/tasks/{task_id}:subscribe`：标准任务接口。
+- [x] `application/a2a+json` 与 `A2A-Version` 响应头。
+- [x] 标准错误结构：`error.code`、`error.status`、`error.details[].@type`。
+- [x] `requirements-dev.txt`：测试依赖拆分。
+- [x] `tests/test_a2a_compat.py`：官方兼容层自动化测试。
+- [x] 陈旧拆分测试修复：错误、状态机、路由、超时、tracing、integration。
