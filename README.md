@@ -184,3 +184,30 @@ python -m pytest tests/test_comprehensive.py -q
 - `docs/11-multi-agent-enhancement-plan.md`
 - `docs/12-multi-agent-enhancement-progress.md`
 - `tests/test_multi_agent_enhanced.py`
+
+## 工程可靠性迭代
+
+本轮增强面向运行可靠性和可观测性：
+
+- 上游取消：`CANCEL` 会调用当前活跃 Provider 的 `cancel(session_id, corr_id)`。
+- Provider 健康检查：`ProviderRouter.check_health()` 维护健康状态。
+- 自动摘除故障 Provider：连续失败达到阈值后熔断冷却，路由跳过故障 Provider。
+- 真实背压：`BoundedQueue.put()` 在队列满时等待空间，超时后返回 `QUEUE_FULL`。
+- 可观测：新增 Prometheus 文本指标、Provider health、dashboard 数据源、OTel Collector / Prometheus / Grafana 配置。
+
+新增端点：
+
+| 端点 | 方法 | 说明 |
+| ---- | ---- | ---- |
+| `/providers/health` | GET | 查看 Provider 健康和熔断状态 |
+| `/providers/health/check` | POST | 主动执行 Provider 健康检查 |
+| `/metrics/prometheus` | GET | Prometheus 文本指标 |
+| `/dashboard/reliability-data` | GET | 可靠性 dashboard JSON 数据 |
+
+相关文件：
+
+- `docs/13-engineering-reliability-plan.md`
+- `docs/14-engineering-reliability-progress.md`
+- `deploy/observability/`
+- `evidence/visualization/reliability-dashboard.html`
+- `tests/test_reliability.py`

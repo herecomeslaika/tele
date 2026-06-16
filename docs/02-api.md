@@ -667,3 +667,59 @@ curl -X POST http://localhost:8000/delegate/planner-worker-reviewer \
 - `sub_results` / `steps` / `worker_results`：子任务结果。
 - `aggregation`：聚合策略。
 - `compensations`：失败补偿记录。
+
+---
+
+## 8. 工程可靠性与可观测端点
+
+### 8.1 Provider 健康状态
+
+```bash
+curl http://localhost:8000/providers/health
+```
+
+返回示例：
+
+```json
+{
+  "mock": {
+    "healthy": true,
+    "available": true,
+    "consecutive_failures": 0,
+    "circuit_open": false,
+    "circuit_open_until": 0,
+    "last_error": "",
+    "last_health_check": 0
+  }
+}
+```
+
+主动健康检查：
+
+```bash
+curl -X POST http://localhost:8000/providers/health/check
+```
+
+### 8.2 Prometheus 指标
+
+```bash
+curl http://localhost:8000/metrics/prometheus
+```
+
+关键指标：
+
+- `tele_laika_request_count`
+- `tele_laika_failure_count`
+- `tele_laika_upstream_cancel_count`
+- `tele_laika_backpressure_wait_count`
+- `tele_laika_backpressure_reject_count`
+- `tele_laika_provider_circuit_open_count`
+- `tele_laika_provider_available{provider="..."}`
+
+### 8.3 Dashboard 数据源
+
+```bash
+curl http://localhost:8000/dashboard/reliability-data
+```
+
+该接口返回 metrics、Provider 健康状态、活跃 session、活跃 Provider 映射和队列深度，用于本地 HTML 或 Grafana 面板展示。

@@ -1,0 +1,45 @@
+{
+  "title": "Tele-Laika Reliability Dashboard",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "tags": ["tele-laika", "a2a", "reliability"],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requests",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "tele_laika_request_count", "legendFormat": "requests"}]
+    },
+    {
+      "type": "stat",
+      "title": "Failures",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "tele_laika_failure_count", "legendFormat": "failures"}]
+    },
+    {
+      "type": "stat",
+      "title": "Upstream Cancels",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "tele_laika_upstream_cancel_count", "legendFormat": "cancels"}]
+    },
+    {
+      "type": "stat",
+      "title": "Backpressure Rejects",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "tele_laika_backpressure_reject_count", "legendFormat": "rejects"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "First Token Latency P95",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "targets": [{"expr": "tele_laika_p95_first_token_latency_ms", "legendFormat": "p95 ms"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider Circuit Open",
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "targets": [{"expr": "tele_laika_provider_circuit_open_count", "legendFormat": "circuit opens"}]
+    }
+  ]
+}

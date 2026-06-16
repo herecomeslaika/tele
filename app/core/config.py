@@ -46,7 +46,12 @@ class GatewayConfig:
     retry_backoff_factor: float = 2.0
 
     max_queue_length: int = 1000
+    backpressure_timeout: float = 1.0
+    backpressure_drop_oldest: bool = False
     send_rate_limit: int = 100
+
+    provider_failure_threshold: int = 3
+    provider_circuit_breaker_cooldown: float = 30.0
 
     security_enabled: bool = True
     require_agent_id: bool = True
@@ -119,7 +124,11 @@ def load_config(env_file: Optional[str] = None) -> GatewayConfig:
         retry_max_delay=_env_float("RETRY_MAX_DELAY", 30.0),
         retry_backoff_factor=_env_float("RETRY_BACKOFF_FACTOR", 2.0),
         max_queue_length=_env_int("MAX_QUEUE_LENGTH", 1000),
+        backpressure_timeout=_env_float("BACKPRESSURE_TIMEOUT", 1.0),
+        backpressure_drop_oldest=_env_bool("BACKPRESSURE_DROP_OLDEST", False),
         send_rate_limit=_env_int("SEND_RATE_LIMIT", 100),
+        provider_failure_threshold=_env_int("PROVIDER_FAILURE_THRESHOLD", 3),
+        provider_circuit_breaker_cooldown=_env_float("PROVIDER_CIRCUIT_BREAKER_COOLDOWN", 30.0),
         security_enabled=_env_bool("SECURITY_ENABLED", True),
         require_agent_id=_env_bool("REQUIRE_AGENT_ID", True),
         max_input_length=_env_int("MAX_INPUT_LENGTH", 10000),
@@ -174,5 +183,11 @@ def validate_config(config: GatewayConfig) -> list[str]:
 
     if config.max_queue_length < 1:
         errors.append("MAX_QUEUE_LENGTH must be >= 1")
+
+    if config.backpressure_timeout < 0:
+        errors.append("BACKPRESSURE_TIMEOUT must be >= 0")
+
+    if config.provider_failure_threshold < 1:
+        errors.append("PROVIDER_FAILURE_THRESHOLD must be >= 1")
 
     return errors

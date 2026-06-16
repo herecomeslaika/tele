@@ -496,14 +496,14 @@ class TestFlowControl:
         assert q.push("b")
         assert q.push("c")
         assert q.is_full
-        q.push("d")  # should drop "a", returns False (dropped)
-        assert q.pop() == "b"
+        assert not q.push("d")  # real backpressure: reject instead of dropping old data
+        assert q.pop() == "a"
 
-    def test_bounded_queue_full_drops_oldest(self):
-        q = BoundedQueue(max_length=2)
+    def test_bounded_queue_legacy_drop_oldest_mode(self):
+        q = BoundedQueue(max_length=2, drop_oldest=True)
         q.push("a")
         q.push("b")
-        q.push("c")  # drops "a"
+        assert not q.push("c")  # drops "a" and reports backpressure
         assert q.pop() == "b"
 
     def test_rate_limiter_allows_within_limit(self):
