@@ -590,3 +590,24 @@ python scripts/perf_baseline.py
 - 新增 `tests/test_multi_agent_enhanced.py` 覆盖 fan-in、pipeline、planner-worker-reviewer、HTTP Agent 调用和失败补偿。
 - 原 `tests/test_comprehensive.py` 中 MultiAgent 与 fan-out 行为继续通过。
 - 新增文档：`docs/11-multi-agent-enhancement-plan.md`、`docs/12-multi-agent-enhancement-progress.md`。
+
+---
+
+## 9. 四次迭代补充：工程可靠性与可观测性
+
+本轮迭代面向工程运行质量，重点补齐取消、健康检查、故障摘除、背压和可视化证据。
+
+### 9.1 新增范围
+
+- 上游取消：`CANCEL` 成功进入取消状态后调用当前 Provider 的 cancel hook。
+- Provider 健康检查：新增 `/providers/health` 与 `/providers/health/check`。
+- 自动摘除故障 Provider：连续失败达到阈值后熔断冷却，路由跳过故障 Provider。
+- 真实背压：队列满时等待空间，超时后返回 `QUEUE_FULL`，不再默认丢弃旧项。
+- 可观测：新增 `/metrics/prometheus`、`/dashboard/reliability-data`、OTel Collector、Prometheus、Grafana 配置和静态 HTML dashboard。
+
+### 9.2 验收结果
+
+- 新增 `tests/test_reliability.py`，覆盖上游取消、熔断摘除、健康恢复、背压等待/超时、可靠性 metrics 和可观测端点。
+- `tests/test_reliability.py` 与 `tests/test_comprehensive.py` 合计 148 个测试通过。
+- 新增文档：`docs/13-engineering-reliability-plan.md`、`docs/14-engineering-reliability-progress.md`。
+- 新增可视化证据：`evidence/visualization/reliability-dashboard.html`。

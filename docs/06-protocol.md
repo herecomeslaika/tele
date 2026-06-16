@@ -418,3 +418,44 @@ HTTP 调用默认发送课程版 `INVOKE` Envelope：
 | `compensate` | 失败后尝试调用 `compensation_agent` 或使用 `fallback_result` |
 
 补偿不会回滚已经完成的外部副作用，只会记录补偿结果并将被补偿子任务标记为 `compensated`。
+
+---
+
+## 9. 工程可靠性语义
+
+### 9.1 上游取消
+
+Gateway 接收 `CANCEL` 后先经过状态机校验；若当前 `corr_id` 存在活跃 Provider，则调用：
+
+```python
+await provider.cancel(session_id, corr_id)
+```
+
+Provider 不支持请求级取消时返回 `False`，Gateway 仍会执行本地取消，停止继续向 Agent 转发后续 chunk。
+
+### 9.2 Provider 健康与熔断
+
+`ProviderRoute` 维护以下状态：
+
+- `healthy`
+- `consecutive_failures`
+- `circuit_open_until`
+- `last_error`
+- `last_health_check`
+
+路由选择只考虑 `healthy=True` 且熔断已关闭的 Provider。连续失败达到 `PROVIDER_FAILURE_THRESHOLD` 后，Provider 会被临时摘除，直到冷却时间结束或健康检查恢复。
+
+### 9.3 背压
+
+`BoundedQueue` 默认不再丢弃旧项。队列满时，`put()` 会等待消费者释放空间；等待超过 `BACKPRESSURE_TIMEOUT` 后返回失败，Gateway 返回 `QUEUE_FULL`。旧的丢弃模式只有在 `BACKPRESSURE_DROP_OLDEST=true` 时启用。
+
+### 9.4 可观测指标
+
+新增指标包括：
+
+- `upstream_cancel_count`
+- `upstream_cancel_success_count`
+- `backpressure_wait_count`
+- `backpressure_reject_count`
+- `provider_circuit_open_count`
+- `provider_health`

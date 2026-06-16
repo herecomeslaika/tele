@@ -149,3 +149,17 @@
 - [x] `_compensate_failure`：partial / fail_fast / compensate 失败策略。
 - [x] `/delegate/fan-in`、`/delegate/pipeline`、`/delegate/planner-worker-reviewer`。
 - [x] `tests/test_multi_agent_enhanced.py`：专项自动化测试。
+
+## 四次迭代检查：工程可靠性
+
+- [x] `docs/13-engineering-reliability-plan.md`：可靠性迭代方案。
+- [x] `docs/14-engineering-reliability-progress.md`：进度追踪。
+- [x] `ProviderAdapter.cancel`：上游取消 hook。
+- [x] `ProviderRouter.check_health`：Provider 健康检查。
+- [x] Provider 熔断摘除：连续失败后跳过故障 Provider。
+- [x] `BoundedQueue.put`：真实背压，默认不丢旧项。
+- [x] `/providers/health`、`/providers/health/check`。
+- [x] `/metrics/prometheus`、`/dashboard/reliability-data`。
+- [x] `deploy/observability/`：OTel Collector、Prometheus、Grafana 配置。
+- [x] `evidence/visualization/reliability-dashboard.html`：可视化证据。
+- [x] `tests/test_reliability.py`：可靠性专项测试。

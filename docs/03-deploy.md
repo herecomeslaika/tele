@@ -374,3 +374,53 @@ location/ {
 - 通过反向代理限制来源 IP
 - HTTPS 部署
 - 定期轮换 API Key
+
+---
+
+## 7. 可靠性与可观测部署
+
+### 7.1 关键配置
+
+```bash
+MAX_QUEUE_LENGTH=1000
+BACKPRESSURE_TIMEOUT=1
+BACKPRESSURE_DROP_OLDEST=false
+PROVIDER_FAILURE_THRESHOLD=3
+PROVIDER_CIRCUIT_BREAKER_COOLDOWN=30
+```
+
+- `BACKPRESSURE_TIMEOUT`：队列满时等待下游消费的最长时间。
+- `BACKPRESSURE_DROP_OLDEST=false`：默认启用真实背压，不静默丢弃旧 chunk。
+- `PROVIDER_FAILURE_THRESHOLD`：连续失败达到该值后打开熔断。
+- `PROVIDER_CIRCUIT_BREAKER_COOLDOWN`：故障 Provider 被摘除后的冷却秒数。
+
+### 7.2 OTel Collector + Prometheus + Grafana
+
+配置文件位于 `deploy/observability/`：
+
+```bash
+cd deploy/observability
+docker compose up -d
+```
+
+端口：
+
+| 服务 | 端口 | 说明 |
+| ---- | ---- | ---- |
+| OTel Collector gRPC | 4317 | OTLP gRPC |
+| OTel Collector HTTP | 4318 | OTLP HTTP |
+| OTel Prometheus Exporter | 8889 | Collector 暴露的 Prometheus 指标 |
+| Prometheus | 9090 | 指标查询 |
+| Grafana | 3000 | 可视化面板 |
+
+Gateway 自身提供 `GET /metrics/prometheus`，Prometheus 配置会抓取该文本指标端点。
+
+### 7.3 本地可视化证据
+
+`evidence/visualization/reliability-dashboard.html` 是无需 Docker 的静态面板，可用于课程报告截图。运行网关后也可以访问：
+
+```bash
+curl http://localhost:8000/dashboard/reliability-data
+```
+
+该接口返回 metrics、Provider 健康、活跃 session、活跃 Provider 映射和队列深度。

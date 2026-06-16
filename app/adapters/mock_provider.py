@@ -63,6 +63,7 @@ class MockProviderAdapter(ProviderAdapter):
         self.chunk_delay = chunk_delay
         self.error_after_chunk = error_after_chunk
         self.chunk_content = chunk_content or ["Hello", " world", "!"]
+        self.cancelled_requests: set[tuple[str, str]] = set()
 
     async def invoke(self, prompt: str, **kwargs: Any) -> AsyncIterator[StreamEvent]:
         start = time.time()
@@ -146,5 +147,10 @@ class MockProviderAdapter(ProviderAdapter):
             await asyncio.sleep(9999)
         return " ".join(self.chunk_content[:self.chunk_count])
 
-    async def cancel(self, session_id: str) -> None:
+    async def cancel(self, session_id: str, corr_id: str = "") -> bool:
+        self.cancelled_requests.add((session_id, corr_id))
         log_event(logger, "mock_provider.cancel")
+        return True
+
+    async def health_check(self) -> bool:
+        return self.scenario not in {MockScenario.ERROR, MockScenario.TIMEOUT}

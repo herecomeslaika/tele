@@ -68,6 +68,19 @@ class ProviderAdapter(abc.ABC):
         """Non-streaming invoke. Returns the full response text."""
         ...
 
+    async def cancel(self, session_id: str, corr_id: str) -> bool:
+        """Best-effort upstream cancellation for an active provider request.
+
+        Providers that do not expose a request-level cancel API can keep the
+        default no-op implementation. The gateway still stops forwarding
+        downstream chunks locally.
+        """
+        return False
+
+    async def health_check(self) -> bool:
+        """Return whether this provider is currently healthy enough for routing."""
+        return True
+
     async def close(self) -> None:
         """Clean up resources."""
         pass

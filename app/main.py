@@ -13,7 +13,7 @@ from typing import Any, AsyncIterator, Optional
 
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 
 # Ensure project root on path
@@ -93,12 +93,16 @@ class SessionStore:
         self.trace_collector = TraceCollector()
         self.audit = AuditLogger(log_dir=config.audit_log_dir) if config.audit_enabled else None
         self.last_seen: dict[str, float] = {}  # session_id -> last heartbeat time
+        self.active_providers: dict[str, tuple[str, ProviderAdapter]] = {}
 
     def get_or_create(self, session_id: str, corr_id: str) -> GatewayStateMachine:
         if session_id not in self.sessions:
             sm = GatewayStateMachine(session_id=session_id)
             self.sessions[session_id] = sm
-            self.queues[session_id] = BoundedQueue(max_length=self.config.max_queue_length)
+            self.queues[session_id] = BoundedQueue(
+                max_length=self.config.max_queue_length,
+                drop_oldest=self.config.backpressure_drop_oldest,
+            )
         return self.sessions[session_id]
 
     def get(self, session_id: str) -> Optional[GatewayStateMachine]:
@@ -112,6 +116,15 @@ class SessionStore:
         self.queues.pop(session_id, None)
         self.last_seen.pop(session_id, None)
         self.timeout_checker.remove(session_id)
+
+    def set_active_provider(self, corr_id: str, provider_name: str, provider: ProviderAdapter) -> None:
+        self.active_providers[corr_id] = (provider_name, provider)
+
+    def clear_active_provider(self, corr_id: str) -> None:
+        self.active_providers.pop(corr_id, None)
+
+    def get_active_provider(self, corr_id: str) -> Optional[tuple[str, ProviderAdapter]]:
+        return self.active_providers.get(corr_id)
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +154,8 @@ class GatewayApp:
             backoff_factor=config.retry_backoff_factor,
         ))
         self.router = ProviderRouter(strategy=config.strategy)
+        self.router.failure_threshold = config.provider_failure_threshold
+        self.router.circuit_breaker_cooldown = config.provider_circuit_breaker_cooldown
         self.multi_agent = MultiAgentManager()
         self.a2a_tasks = A2ATaskStore()
         self._setup_providers()
@@ -278,9 +293,10 @@ class GatewayApp:
             provider_name, provider = self.router.select(
                 session_id=session_id, model=model, task_type=task_type
             )
+            self.session_store.set_active_provider(corr_id, provider_name, provider)
         except RuntimeError:
             yield make_error_envelope(session_id, corr_id, CONFIG_ERROR.code,
-                                      "No providers configured").model_dump()
+                                      "No healthy providers configured").model_dump()
             return
 
         # --- Stream from provider ---
@@ -320,12 +336,6 @@ class GatewayApp:
 
                     self.session_store.timeout_checker.on_chunk(session_id)
 
-                    # Flow control: check queue
-                    queue = self.session_store.get_queue(session_id)
-                    if queue and queue.is_full:
-                        log_event(logger, "gateway.queue_full_warning",
-                                  session_id=session_id, corr_id=corr_id)
-
                     chunk_env = make_envelope(
                         MessageType.STREAM_CHUNK,
                         session_id,
@@ -333,13 +343,50 @@ class GatewayApp:
                         {"content": event.content or ""},
                         seq=seq,
                     )
-                    yield chunk_env.model_dump()
+                    chunk_dict = chunk_env.model_dump()
+
+                    queue = self.session_store.get_queue(session_id)
+                    if queue:
+                        wait_start = time.time()
+                        queued = await queue.put(
+                            chunk_dict,
+                            timeout=self.config.backpressure_timeout,
+                        )
+                        wait_ms = (time.time() - wait_start) * 1000
+                        if wait_ms > 0:
+                            get_metrics().record_backpressure_wait(wait_ms)
+                        if not queued:
+                            get_metrics().record_backpressure_reject()
+                            sm.on_event(EventType.ERROR)
+                            self.router.record_failure(provider_name, "backpressure timeout")
+                            health = self.router.health_summary().get(provider_name)
+                            if health:
+                                get_metrics().update_provider_health(provider_name, health)
+                                if health.get("circuit_open"):
+                                    get_metrics().record_provider_circuit_open()
+                            self.session_store.clear_active_provider(corr_id)
+                            yield make_error_envelope(
+                                session_id,
+                                corr_id,
+                                QUEUE_FULL.code,
+                                "Backpressure timeout while forwarding stream chunk",
+                                source="gateway",
+                                seq=seq,
+                            ).model_dump()
+                            return
+                        queue.pop()
+
+                    yield chunk_dict
 
                     # Update idempotency state
                     self.session_store.idempotency.update_state(corr_id, sm.state)
 
                 elif event.type == "end":
                     sm.on_event(EventType.STREAM_END)
+                    self.router.record_success(provider_name)
+                    health = self.router.health_summary().get(provider_name)
+                    if health:
+                        get_metrics().update_provider_health(provider_name, health)
                     end_env = make_envelope(
                         MessageType.STREAM_END,
                         session_id,
@@ -369,6 +416,7 @@ class GatewayApp:
                     # Cleanup
                     self.session_store.seq_checker.reset(corr_id)
                     self.session_store.timeout_checker.remove(session_id)
+                    self.session_store.clear_active_provider(corr_id)
                     trace.finish()
 
                     # Store response in idempotency cache (simplified — real impl would cache full response)
@@ -378,6 +426,12 @@ class GatewayApp:
 
                 elif event.type == "error":
                     sm.on_event(EventType.ERROR)
+                    self.router.record_failure(provider_name, event.error_msg or event.error_code or "provider error")
+                    health = self.router.health_summary().get(provider_name)
+                    if health:
+                        get_metrics().update_provider_health(provider_name, health)
+                        if health.get("circuit_open"):
+                            get_metrics().record_provider_circuit_open()
                     error_env = make_error_envelope(
                         session_id, corr_id,
                         event.error_code or PROVIDER_ERROR.code,
@@ -403,12 +457,22 @@ class GatewayApp:
                         ))
 
                     self.session_store.timeout_checker.remove(session_id)
+                    self.session_store.clear_active_provider(corr_id)
                     self.session_store.idempotency.update_state(corr_id, sm.state)
                     trace.finish()
                     return
 
+            self.session_store.clear_active_provider(corr_id)
+
         except Exception as e:
             sm.on_event(EventType.ERROR)
+            self.router.record_failure(provider_name, str(e))
+            health = self.router.health_summary().get(provider_name)
+            if health:
+                get_metrics().update_provider_health(provider_name, health)
+                if health.get("circuit_open"):
+                    get_metrics().record_provider_circuit_open()
+            self.session_store.clear_active_provider(corr_id)
             yield make_error_envelope(session_id, corr_id, PROVIDER_ERROR.code,
                                       str(e), source="provider").model_dump()
             get_metrics().record_failure()
@@ -435,6 +499,19 @@ class GatewayApp:
             return make_error_envelope(session_id, corr_id, MSG_AFTER_TERMINAL.code,
                                        result.reason).model_dump()
 
+        upstream_cancelled = False
+        active = self.session_store.get_active_provider(corr_id)
+        if active:
+            provider_name, provider = active
+            try:
+                upstream_cancelled = await provider.cancel(session_id, corr_id)
+            except Exception as e:
+                log_event(logger, "gateway.upstream_cancel_failed",
+                          error_code=PROVIDER_ERROR.code,
+                          state=f"provider={provider_name},error={e}")
+            get_metrics().record_upstream_cancel(upstream_cancelled)
+            self.session_store.clear_active_provider(corr_id)
+
         # Register idempotency so duplicate CANCEL is detected
         self.session_store.idempotency.register(corr_id, "CANCEL", sm.state)
         get_metrics().record_cancel()
@@ -452,7 +529,12 @@ class GatewayApp:
             MessageType.ERROR,
             session_id,
             corr_id,
-            {"error_code": "CANCELLED", "message": "任务已取消", "source": "gateway"},
+            {
+                "error_code": "CANCELLED",
+                "message": "任务已取消",
+                "source": "gateway",
+                "upstream_cancelled": upstream_cancelled,
+            },
             seq=envelope.seq,
         ).model_dump()
 
@@ -1016,10 +1098,58 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
         metrics = get_metrics()
         return JSONResponse(content=metrics.summary())
 
+    @app.get("/metrics/prometheus")
+    async def prometheus_metrics_endpoint():
+        summary = get_metrics().summary()
+        lines = []
+        for key, value in summary.items():
+            if isinstance(value, (int, float)) and value is not None:
+                lines.append(f"tele_laika_{key} {value}")
+        for provider_name, health in summary.get("provider_health", {}).items():
+            labels = f'provider="{provider_name}"'
+            lines.append(f"tele_laika_provider_available{{{labels}}} {1 if health.get('available') else 0}")
+            lines.append(f"tele_laika_provider_healthy{{{labels}}} {1 if health.get('healthy') else 0}")
+            lines.append(
+                f"tele_laika_provider_consecutive_failures{{{labels}}} "
+                f"{health.get('consecutive_failures', 0)}"
+            )
+            lines.append(f"tele_laika_provider_circuit_open{{{labels}}} {1 if health.get('circuit_open') else 0}")
+        return PlainTextResponse("\n".join(lines) + "\n")
+
     # --- Health endpoint ---
     @app.get("/health")
     async def health_endpoint():
-        return {"status": "ok", "providers": len(gateway.router.routes)}
+        health = gateway.router.health_summary()
+        return {
+            "status": "ok" if any(v["available"] for v in health.values()) else "degraded",
+            "providers": len(gateway.router.routes),
+            "provider_health": health,
+        }
+
+    @app.get("/providers/health")
+    async def provider_health_endpoint():
+        return JSONResponse(content=gateway.router.health_summary())
+
+    @app.post("/providers/health/check")
+    async def provider_health_check_endpoint():
+        results = await gateway.router.check_health()
+        for provider_name, health in results.items():
+            get_metrics().update_provider_health(provider_name, health)
+        return JSONResponse(content=results)
+
+    @app.get("/dashboard/reliability-data")
+    async def reliability_dashboard_data():
+        metrics = get_metrics().summary()
+        return JSONResponse(content={
+            "metrics": metrics,
+            "providers": gateway.router.health_summary(),
+            "active_sessions": list(gateway.session_store.sessions.keys()),
+            "active_provider_corr_ids": list(gateway.session_store.active_providers.keys()),
+            "queue_depths": {
+                session_id: queue.length
+                for session_id, queue in gateway.session_store.queues.items()
+            },
+        })
 
     # --- Audit query endpoint ---
     @app.get("/audit/{corr_id}")
