@@ -574,3 +574,96 @@ SSE 中每条 `data:` 都是 `StreamResponse`，可能包含：
 ```
 
 内部 `ERROR` Envelope 会映射到该标准错误形态；`CANCELLED` 类终态则映射为标准 `Task` 状态 `CANCELED`。
+
+---
+
+## 7. MultiAgent 增强端点
+
+### 7.1 注册 HTTP Agent
+
+`endpoint` 可选。填写后，MultiAgent 子任务会优先通过 HTTP POST 调用该 endpoint；未填写时继续走本地 ProviderRouter。
+
+```bash
+curl -X POST http://localhost:8000/agents/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "remote-coder",
+    "name": "Remote Coder",
+    "roles": ["worker"],
+    "capabilities": ["code"],
+    "endpoint": "http://127.0.0.1:9001/invoke",
+    "api_key": "remote-agent-key"
+  }'
+```
+
+### 7.2 POST /delegate/fan-in
+
+```bash
+curl -X POST http://localhost:8000/delegate/fan-in \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_agents": ["researcher", "coder", "tester"],
+    "task": "分析 MultiAgent 增强方案",
+    "aggregation": "summary",
+    "failure_policy": "partial"
+  }'
+```
+
+关键字段：
+
+| 字段 | 说明 |
+| ---- | ---- |
+| `target_agents` | 并发执行的 Agent ID 列表 |
+| `task` | 默认任务文本 |
+| `tasks` | 可选；按 Agent ID 或数组位置指定不同任务 |
+| `aggregation` | `json`、`concat`、`summary` |
+| `failure_policy` | `partial`、`fail_fast`、`compensate` |
+| `compensation_agent` | 失败补偿 Agent |
+
+### 7.3 POST /delegate/pipeline
+
+```bash
+curl -X POST http://localhost:8000/delegate/pipeline \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "完成接口兼容层",
+    "steps": [
+      {"agent": "planner", "task": "制定计划：{input}"},
+      {"agent": "worker", "task": "根据计划实现：{previous}"},
+      {"agent": "reviewer", "task": "审查实现结果：{previous}"}
+    ],
+    "failure_policy": "fail_fast"
+  }'
+```
+
+任务模板支持：
+
+- `{input}` / `{task}`：原始任务。
+- `{previous}` / `{result}`：上一步结果。
+- `{step_index}`：当前步骤序号。
+- `{agent_id}`：当前 Agent ID。
+
+### 7.4 POST /delegate/planner-worker-reviewer
+
+```bash
+curl -X POST http://localhost:8000/delegate/planner-worker-reviewer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "增强 MultiAgent 协作能力",
+    "planner_agent": "planner",
+    "worker_agents": ["worker-1", "worker-2"],
+    "reviewer_agent": "reviewer",
+    "aggregation": "summary",
+    "failure_policy": "compensate",
+    "compensation_agent": "fallback-worker"
+  }'
+```
+
+如果未显式填写 `planner_agent`、`worker_agents`、`reviewer_agent`，Gateway 会按 Agent 的 `roles` 自动查找 `planner`、`worker`、`reviewer`。
+
+响应仍使用课程版 `AGENT_RESPONSE` Envelope，payload 中新增：
+
+- `pattern`：实际协作模式。
+- `sub_results` / `steps` / `worker_results`：子任务结果。
+- `aggregation`：聚合策略。
+- `compensations`：失败补偿记录。

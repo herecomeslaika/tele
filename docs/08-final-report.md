@@ -565,3 +565,28 @@ python scripts/perf_baseline.py
 ### 7.4 后续工作量建议
 
 如果继续增加有工作量的扩展，优先选择持久化 Task Store、Push Notification、Extended Agent Card 鉴权增强、上游 Provider Cancel、多 Agent 官方 Skill 暴露。这些扩展都能在现有架构上继续迭代，并且有明确的代码、测试和文档产出。
+
+---
+
+## 8. 三次迭代补充：MultiAgent 协作增强
+
+在官方 A2A 兼容层之后，项目继续增强 MultiAgent。原实现只支持 single delegation 和 fan-out，并且 Agent 间主要依赖 Gateway 内部 Provider 调用。本次迭代将 MultiAgent 扩展为可组合的协作编排层。
+
+### 8.1 新增范围
+
+- 新增 fan-in：多个 Agent 并发执行后聚合成一个最终结果。
+- 新增 pipeline：按步骤顺序执行 Agent 链，前一步输出进入后一步上下文。
+- 新增 planner-worker-reviewer：内置“规划-执行-审查”协作流。
+- 新增跨 HTTP Agent 调用：`AgentProfile.endpoint` 存在时优先调用远端 Agent。
+- 新增结果聚合策略：`json`、`concat`、`summary`。
+- 新增失败策略：`partial`、`fail_fast`、`compensate`。
+
+### 8.2 实现策略
+
+核心实现集中在 `app/core/multi_agent.py`。通过统一的 `_execute_agent_task` 把本地 Provider 调用、远端 HTTP Agent 调用、子任务记录、并发计数和错误处理收敛到一个执行入口。上层的 fan-in、pipeline、planner-worker-reviewer 只负责编排顺序和组合结果。
+
+### 8.3 验收结果
+
+- 新增 `tests/test_multi_agent_enhanced.py` 覆盖 fan-in、pipeline、planner-worker-reviewer、HTTP Agent 调用和失败补偿。
+- 原 `tests/test_comprehensive.py` 中 MultiAgent 与 fan-out 行为继续通过。
+- 新增文档：`docs/11-multi-agent-enhancement-plan.md`、`docs/12-multi-agent-enhancement-progress.md`。

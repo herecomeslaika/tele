@@ -159,3 +159,28 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 python -m pytest tests/test_comprehensive.py -q
 ```
+
+## MultiAgent 增强迭代
+
+在原有 single delegation 和 fan-out 基础上，MultiAgent 编排层新增以下能力：
+
+- `fan-in`：多个 Agent 并发执行后聚合为一个最终结果。
+- `pipeline`：按步骤顺序执行 Agent 链，前一步结果进入后一步。
+- `planner-worker-reviewer`：内置规划、执行、审查协作流。
+- 跨 HTTP Agent 调用：注册 Agent 时可填写 `endpoint`，Gateway 优先通过 HTTP 调用远端 Agent。
+- 结果聚合：支持 `json`、`concat`、`summary`。
+- 失败补偿：支持 `partial`、`fail_fast`、`compensate`。
+
+新增端点：
+
+| 端点 | 方法 | 说明 |
+| ---- | ---- | ---- |
+| `/delegate/fan-in` | POST | 并发执行多个 Agent 并聚合结果 |
+| `/delegate/pipeline` | POST | 顺序执行 Agent 步骤链 |
+| `/delegate/planner-worker-reviewer` | POST | 执行规划-工作-审查协作流 |
+
+相关文件：
+
+- `docs/11-multi-agent-enhancement-plan.md`
+- `docs/12-multi-agent-enhancement-progress.md`
+- `tests/test_multi_agent_enhanced.py`

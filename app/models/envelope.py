@@ -116,10 +116,19 @@ class Envelope(BaseModel):
                 raise ValueError("ERROR payload must contain 'error_code'")
 
         elif t == MessageType.AGENT_DELEGATE:
-            if "target_agent" not in p and "target_agents" not in p:
-                raise ValueError("AGENT_DELEGATE payload must contain 'target_agent' or 'target_agents'")
-            if "task" not in p:
-                raise ValueError("AGENT_DELEGATE payload must contain 'task'")
+            has_target = "target_agent" in p or "target_agents" in p
+            has_pipeline = "steps" in p
+            has_pwr = (
+                p.get("pattern") in {"planner-worker-reviewer", "pwr"}
+                or any(k in p for k in ("planner_agent", "worker_agents", "reviewer_agent"))
+            )
+            if not has_target and not has_pipeline and not has_pwr:
+                raise ValueError(
+                    "AGENT_DELEGATE payload must contain target_agent, target_agents, steps, "
+                    "or planner/worker/reviewer agents"
+                )
+            if "task" not in p and "steps" not in p:
+                raise ValueError("AGENT_DELEGATE payload must contain 'task' or 'steps'")
 
         elif t == MessageType.AGENT_RESPONSE:
             if "delegation_id" not in p:

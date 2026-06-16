@@ -136,3 +136,16 @@
 - [x] `requirements-dev.txt`：测试依赖拆分。
 - [x] `tests/test_a2a_compat.py`：官方兼容层自动化测试。
 - [x] 陈旧拆分测试修复：错误、状态机、路由、超时、tracing、integration。
+
+## 三次迭代检查：MultiAgent 协作增强
+
+- [x] `docs/11-multi-agent-enhancement-plan.md`：MultiAgent 增强迭代方案。
+- [x] `docs/12-multi-agent-enhancement-progress.md`：进度追踪。
+- [x] `AgentProfile.endpoint`：支持跨 HTTP Agent 调用。
+- [x] `handle_fan_in`：fan-in 并发执行与结果聚合。
+- [x] `handle_pipeline`：pipeline 顺序步骤链。
+- [x] `handle_planner_worker_reviewer`：规划-执行-审查协作流。
+- [x] `_aggregate_results`：json / concat / summary 聚合。
+- [x] `_compensate_failure`：partial / fail_fast / compensate 失败策略。
+- [x] `/delegate/fan-in`、`/delegate/pipeline`、`/delegate/planner-worker-reviewer`。
+- [x] `tests/test_multi_agent_enhanced.py`：专项自动化测试。

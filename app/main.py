@@ -560,10 +560,18 @@ class GatewayApp:
             yield envelope.model_dump()
 
         elif envelope.type == MessageType.AGENT_DELEGATE:
-            # Check if this is a fan-out request
             pattern = envelope.payload.get("pattern", "single")
             if pattern == "fan-out":
                 async for resp in self.multi_agent.handle_fan_out(envelope, self.router):
+                    yield resp
+            elif pattern == "fan-in":
+                async for resp in self.multi_agent.handle_fan_in(envelope, self.router):
+                    yield resp
+            elif pattern == "pipeline":
+                async for resp in self.multi_agent.handle_pipeline(envelope, self.router):
+                    yield resp
+            elif pattern in {"planner-worker-reviewer", "pwr"}:
+                async for resp in self.multi_agent.handle_planner_worker_reviewer(envelope, self.router):
                     yield resp
             else:
                 async for resp in self.multi_agent.handle_delegate(envelope, self.router):
@@ -1047,6 +1055,7 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
                 "name": a.name,
                 "roles": a.roles,
                 "capabilities": a.capabilities,
+                "endpoint": a.endpoint,
                 "status": a.status,
                 "current_tasks": a.current_tasks,
                 "max_concurrent_tasks": a.max_concurrent_tasks,
@@ -1065,8 +1074,10 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
             "name": profile.name,
             "roles": profile.roles,
             "capabilities": profile.capabilities,
+            "endpoint": profile.endpoint,
             "status": profile.status,
             "current_tasks": profile.current_tasks,
+            "max_concurrent_tasks": profile.max_concurrent_tasks,
         })
 
     @app.post("/agents/register")
@@ -1083,7 +1094,10 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
             name=raw.get("name", agent_id),
             roles=raw.get("roles", ["worker"]),
             capabilities=raw.get("capabilities", []),
+            endpoint=raw.get("endpoint"),
             status=raw.get("status", "online"),
+            max_concurrent_tasks=raw.get("max_concurrent_tasks", 5),
+            api_key=raw.get("api_key"),
         )
         gateway.multi_agent.register_agent(profile, security=gateway.security)
         return JSONResponse(content={"agent_id": agent_id, "status": "registered"})
@@ -1100,7 +1114,10 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
                 "pattern": d.pattern,
                 "status": d.status,
                 "result": d.result,
+                "error": d.error,
                 "sub_delegations": d.sub_delegations,
+                "compensations": d.compensations,
+                "metadata": d.metadata,
             }
             for d in delegations
         ])
@@ -1135,6 +1152,131 @@ def create_app(config: Optional[GatewayConfig] = None) -> FastAPI:
         async for chunk in gateway.multi_agent.handle_fan_out(envelope, gateway.router):
             results.append(chunk)
 
+        if len(results) == 1:
+            return JSONResponse(content=results[0])
+        return JSONResponse(content={"results": results})
+
+    @app.post("/delegate/fan-in")
+    async def fan_in_endpoint(request: Request):
+        """Fan-in delegation: run multiple agents and aggregate results."""
+        try:
+            raw = await request.json()
+        except Exception:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+        session_id = raw.get("session_id", f"fanin-{uuid.uuid4().hex[:8]}")
+        corr_id = raw.get("corr_id", f"corr-{uuid.uuid4().hex[:8]}")
+        payload = {
+            "target_agents": raw.get("target_agents", []),
+            "task": raw.get("task", ""),
+            "pattern": "fan-in",
+            "source_agent": raw.get("source_agent", "api-client"),
+            "model": raw.get("model", "mock-model"),
+            "aggregation": raw.get("aggregation", "json"),
+            "failure_policy": raw.get("failure_policy", "partial"),
+        }
+        for optional_key in (
+            "tasks", "task_template", "aggregator_agent", "aggregation_task",
+            "compensation_agent", "compensation", "fallback_result",
+            "http_timeout", "agent_api_keys",
+        ):
+            if optional_key in raw:
+                payload[optional_key] = raw[optional_key]
+
+        envelope = Envelope(
+            type=MessageType.AGENT_DELEGATE,
+            session_id=session_id,
+            corr_id=corr_id,
+            payload=payload,
+        )
+
+        results = []
+        async for chunk in gateway.multi_agent.handle_fan_in(envelope, gateway.router):
+            results.append(chunk)
+        if len(results) == 1:
+            return JSONResponse(content=results[0])
+        return JSONResponse(content={"results": results})
+
+    @app.post("/delegate/pipeline")
+    async def pipeline_endpoint(request: Request):
+        """Pipeline delegation: execute ordered agent steps."""
+        try:
+            raw = await request.json()
+        except Exception:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+        session_id = raw.get("session_id", f"pipe-{uuid.uuid4().hex[:8]}")
+        corr_id = raw.get("corr_id", f"corr-{uuid.uuid4().hex[:8]}")
+        payload = {
+            "steps": raw.get("steps", []),
+            "target_agents": raw.get("target_agents", []),
+            "task": raw.get("task", ""),
+            "pattern": "pipeline",
+            "source_agent": raw.get("source_agent", "api-client"),
+            "model": raw.get("model", "mock-model"),
+            "failure_policy": raw.get("failure_policy", "fail_fast"),
+            "initial_context": raw.get("initial_context", raw.get("task", "")),
+        }
+        for optional_key in (
+            "compensation_agent", "compensation", "fallback_result",
+            "http_timeout", "agent_api_keys",
+        ):
+            if optional_key in raw:
+                payload[optional_key] = raw[optional_key]
+
+        envelope = Envelope(
+            type=MessageType.AGENT_DELEGATE,
+            session_id=session_id,
+            corr_id=corr_id,
+            payload=payload,
+        )
+
+        results = []
+        async for chunk in gateway.multi_agent.handle_pipeline(envelope, gateway.router):
+            results.append(chunk)
+        if len(results) == 1:
+            return JSONResponse(content=results[0])
+        return JSONResponse(content={"results": results})
+
+    @app.post("/delegate/planner-worker-reviewer")
+    async def planner_worker_reviewer_endpoint(request: Request):
+        """Planner-worker-reviewer built-in collaboration flow."""
+        try:
+            raw = await request.json()
+        except Exception:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+        session_id = raw.get("session_id", f"pwr-{uuid.uuid4().hex[:8]}")
+        corr_id = raw.get("corr_id", f"corr-{uuid.uuid4().hex[:8]}")
+        payload = {
+            "pattern": "planner-worker-reviewer",
+            "task": raw.get("task", ""),
+            "planner_agent": raw.get("planner_agent"),
+            "worker_agents": raw.get("worker_agents"),
+            "reviewer_agent": raw.get("reviewer_agent"),
+            "source_agent": raw.get("source_agent", "api-client"),
+            "model": raw.get("model", "mock-model"),
+            "aggregation": raw.get("aggregation", "summary"),
+            "failure_policy": raw.get("failure_policy", "partial"),
+        }
+        for optional_key in (
+            "planner_task", "worker_task", "reviewer_task", "aggregator_agent",
+            "aggregation_task", "compensation_agent", "compensation",
+            "fallback_result", "http_timeout", "agent_api_keys",
+        ):
+            if optional_key in raw:
+                payload[optional_key] = raw[optional_key]
+
+        envelope = Envelope(
+            type=MessageType.AGENT_DELEGATE,
+            session_id=session_id,
+            corr_id=corr_id,
+            payload=payload,
+        )
+
+        results = []
+        async for chunk in gateway.multi_agent.handle_planner_worker_reviewer(envelope, gateway.router):
+            results.append(chunk)
         if len(results) == 1:
             return JSONResponse(content=results[0])
         return JSONResponse(content={"results": results})

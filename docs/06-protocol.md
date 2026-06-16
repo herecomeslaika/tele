@@ -357,3 +357,64 @@ Gateway 在 `field_validator("type")` 阶段自动将 CSD_Stream_v0 旧名称映
 - `Part` 模型已经包含 text、raw、url、data，但执行链路目前主要支持文本输入输出。
 - `/tasks/{id}:cancel` 对已完成任务返回 `UNSUPPORTED_OPERATION`；真正的上游 Provider 中断仍属于后续扩展。
 - `pushNotifications` 暂未实现，Agent Card 中明确声明为 `false`。
+
+---
+
+## 8. MultiAgent 增强协议
+
+### 8.1 协作模式
+
+`AGENT_DELEGATE.payload.pattern` 支持以下值：
+
+| pattern | 说明 |
+| ------- | ---- |
+| `single` | 单 Agent 委派，兼容原实现 |
+| `fan-out` | 同一任务并发发给多个 Agent，返回子结果列表 |
+| `fan-in` | 多个 Agent 并发执行后聚合为一个最终结果 |
+| `pipeline` | 按步骤顺序执行，前一步结果作为后一步上下文 |
+| `planner-worker-reviewer` / `pwr` | 内置规划-执行-审查协作流 |
+
+### 8.2 AgentProfile.endpoint
+
+`AgentProfile` 新增 `endpoint` 语义：当目标 Agent 存在 endpoint 时，Gateway 通过 HTTP POST 调用远端 Agent；否则使用本地 ProviderRouter。
+
+HTTP 调用默认发送课程版 `INVOKE` Envelope：
+
+```json
+{
+  "version": "v1",
+  "type": "INVOKE",
+  "session_id": "s1",
+  "corr_id": "sub-xxxx",
+  "payload": {
+    "prompt": "sub task",
+    "model": "mock-model",
+    "task_type": "multi_agent"
+  }
+}
+```
+
+远端可返回：
+
+- `{ "result": "..." }`
+- 单个 Envelope
+- `{ "chunks": [STREAM_CHUNK, STREAM_END] }`
+- 官方 A2A `{ "task": ... }`
+
+### 8.3 聚合策略
+
+| aggregation | 说明 |
+| ----------- | ---- |
+| `json` | 原样返回子任务结果数组 |
+| `concat` | 按 Agent 拼接成功结果 |
+| `summary` | 返回成功/失败摘要；配置 `aggregator_agent` 时委托聚合 Agent 生成摘要 |
+
+### 8.4 失败策略
+
+| failure_policy | 行为 |
+| -------------- | ---- |
+| `partial` | 保留失败子任务，父任务状态为 `partial` |
+| `fail_fast` | pipeline 等顺序流程遇到失败即停止 |
+| `compensate` | 失败后尝试调用 `compensation_agent` 或使用 `fallback_result` |
+
+补偿不会回滚已经完成的外部副作用，只会记录补偿结果并将被补偿子任务标记为 `compensated`。
